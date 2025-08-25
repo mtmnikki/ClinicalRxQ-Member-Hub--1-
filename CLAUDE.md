@@ -70,7 +70,7 @@ src/
   - One account can have multiple profiles
 - **MemberProfile** (member_profiles): Individual pharmacy staff profiles
   - Linked to account via `member_account_id`
-  - Roles: Pharmacist-PIC, Pharmacist-Staff, Pharmacy Technician
+  - Roles: Pharmacist, Pharmacist-PIC, Pharmacy Technician, Intern, Pharmacy
 
 ### Key Implementation Details
 
@@ -110,3 +110,31 @@ npm run build                  # Verify build succeeds
 2. **Hash Routing**: Uses HashRouter for compatibility
 3. **Type Safety**: Full TypeScript coverage with strict mode
 4. **Error Handling**: Comprehensive error boundaries and try-catch blocks
+
+### Critical Requirements & Potential Crash Points
+
+#### Environment Variables (CRITICAL)
+- **REQUIRED**: `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` must be set
+- Missing these will crash the app on startup (src/services/supabase.ts:14-16)
+
+#### Form Validation
+- Forms use React Hook Form with Zod validation
+- **AddProfileModalSupabase**: All fields are optional, but at least one of role/firstName/lastName must be provided
+- Validation errors are handled gracefully
+
+#### Common Crash Scenarios to Avoid
+1. **Array Operations**: Always check arrays before `.map()`, `.filter()`, `.find()`
+   - Dashboard.tsx has multiple array operations that need null checks
+   - ProfileGate.tsx maps over profiles array without validation
+2. **Property Access**: Use optional chaining (`?.`) for potentially null objects
+   - authStore.ts accesses `session.user.id` directly
+   - Dashboard.tsx accesses `currentProfile.displayName` without checks
+3. **JSON Parsing**: Wrap `JSON.parse()` in try-catch blocks
+   - profileStore.ts parses sessionStorage without error handling
+4. **Path Manipulation**: Check strings before `.split()` operations
+   - Multiple components split file paths without null validation
+
+#### Database Considerations
+- Supabase queries may return null for JOINed tables
+- Always use `data || []` pattern for array results
+- Check nested properties from database relations with optional chaining

@@ -25,9 +25,12 @@ import {
   getDashboardPrograms, 
   getRecentActivity, 
   getAnnouncements, 
-  getBookmarkedResources 
+  getBookmarkedResources,
+  type RecentActivity,
+  type Announcement,
+  type BookmarkedResource
 } from '../services/profileDashboardService';
-import type { MemberProfile } from '../types';
+import type { ProgramInfo } from '../services/storageCatalog';
 
 /**
  * Helper: map string icon names to lucide-react components safely.
@@ -72,11 +75,10 @@ export default function Dashboard() {
   const { showModal, setShowModal } = useProfileSelection();
   
   // Dashboard data state
-  const [programs, setPrograms] = useState<any[]>([]);
-  const [bookmarks, setBookmarks] = useState<any[]>([]);
-  const [activity, setActivity] = useState<any[]>([]);
-  const [announcements, setAnnouncements] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [programs, setPrograms] = useState<(ProgramInfo & { icon?: string; resourceCount?: number; lastUpdatedISO?: string })[]>([]);
+  const [bookmarks, setBookmarks] = useState<BookmarkedResource[]>([]);
+  const [activity, setActivity] = useState<RecentActivity[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   // Load dashboard data when profile is selected
@@ -93,7 +95,6 @@ export default function Dashboard() {
 
     const loadDashboardData = async () => {
       try {
-        setLoading(true);
         setError(null);
         
         const [programsData, activityData, announcementsData, bookmarksData] = await Promise.all([
@@ -110,8 +111,6 @@ export default function Dashboard() {
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load dashboard data');
         console.error('Dashboard load error:', err);
-      } finally {
-        setLoading(false);
       }
     };
 
@@ -189,7 +188,7 @@ export default function Dashboard() {
                  <div className="p-4 text-center text-sm text-slate-500">Please select a profile to see recent activity.</div>
               ) : (
                 <div className="divide-y">
-                  {activity.map((a) => (
+                  {activity && activity.length > 0 ? activity.map((a) => (
                     <div key={a.id} className="flex items-center justify-between py-2">
                       <div>
                         <div className="text-[13px] font-medium">{a.resourceName}</div>
@@ -213,7 +212,9 @@ export default function Dashboard() {
                         </Link>
                       )}
                     </div>
-                  ))}
+                  )) : (
+                    <div className="p-4 text-center text-sm text-slate-500">No recent activity</div>
+                  )}
                 </div>
               )}
             </CardContent>
@@ -227,7 +228,7 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {announcements.map((announcement) => (
+                {announcements && announcements.length > 0 ? announcements.map((announcement) => (
                   <div key={announcement.id} className="rounded-md border p-2.5">
                     <div className="text-[13px] font-semibold">{announcement.title}</div>
                     <div className="text-[12px] text-slate-500">
@@ -235,7 +236,9 @@ export default function Dashboard() {
                     </div>
                     <div className="mt-0.5 text-[13px] text-slate-700">{announcement.body}</div>
                   </div>
-                ))}
+                )) : (
+                  <div className="text-[13px] text-slate-500">No announcements at this time</div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -253,7 +256,7 @@ export default function Dashboard() {
           </div>
         </div>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {programs.map((p) => {
+          {programs && programs.length > 0 ? programs.map((p) => {
             const Icon = iconByName(p.icon);
             return (
               <Link key={p.slug} to={`/program/${p.slug}`}>
@@ -278,7 +281,9 @@ export default function Dashboard() {
                 </Card>
               </Link>
             );
-          })}
+          }) : (
+            <div className="col-span-full rounded-md border border-dashed p-4 text-[13px] text-slate-600">No programs available</div>
+          )}
         </div>
       </section>
 
@@ -299,11 +304,11 @@ export default function Dashboard() {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-            {bookmarks.map((b) => {
+            {bookmarks && bookmarks.length > 0 && bookmarks.map((b) => {
               const isVideo =
                 (b.mimeType && b.mimeType.startsWith('video/')) ||
                 (b.url || '').toLowerCase().match(/\.(mp4|mov|m4v|webm)$/) != null;
-              const duration = (b as any)?.duration as string | undefined;
+              const duration = b.duration;
 
               return (
                 <Card key={b.id} className="hover:shadow-sm">

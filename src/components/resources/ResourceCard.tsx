@@ -57,7 +57,7 @@ export default function ResourceCard({ item }: ResourceCardProps) {
         name: item.title || item.filename,
         path: item.path,
         url: item.url,
-        programSlug: item.path.split('/')[0], // First part of path is usually program
+        programSlug: item.path ? item.path.split('/')[0] : '', // First part of path is usually program
         mimeType: item.mimeType,
       });
     } catch (error) {

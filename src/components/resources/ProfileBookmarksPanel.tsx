@@ -31,7 +31,7 @@ function getFileIcon(item: StorageFileItem) {
  * Get program display name from path
  */
 function getProgramDisplay(path: string): string {
-  const programSlug = path.split('/')[0];
+  const programSlug = path ? path.split('/')[0] : '';
   const programMap: Record<string, string> = {
     'mtmthefuturetoday': 'MTM The Future Today',
     'timemymeds': 'Time My Meds',
@@ -49,7 +49,6 @@ export default function ProfileBookmarksPanel({ className }: ProfileBookmarksPan
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [bookmarkedFiles, setBookmarkedFiles] = useState<StorageFileItem[]>([]);
-  const [loading, setLoading] = useState(false);
 
   // Load bookmarks when profile changes
   useEffect(() => {
@@ -66,8 +65,8 @@ export default function ProfileBookmarksPanel({ className }: ProfileBookmarksPan
     }
 
     const files: StorageFileItem[] = Array.from(bookmarkedResources.entries()).map(([path, catalogId]) => {
-      const filename = path.split('/').pop() || path;
-      const extension = filename.split('.').pop()?.toLowerCase() || '';
+      const filename = path ? path.split('/').pop() || path : 'unknown';
+      const extension = filename ? filename.split('.').pop()?.toLowerCase() || '' : '';
       
       return {
         path,

@@ -5,7 +5,7 @@
  * Remaining sections are preserved.
  */
 
-import React, { useState, useMemo } from 'react'
+import React, { useState } from 'react'
 import Header from '../components/layout/Header'
 import { Button } from '../components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'

@@ -253,7 +253,7 @@ export async function isBookmarked(profileId: string, resourcePath: string): Pro
 export async function startTrainingModule(
   profileId: string,
   trainingModuleId: string,
-  moduleName: string
+  _moduleName: string
 ): Promise<void> {
   const { error } = await supabase
     .from('member_training_progress')

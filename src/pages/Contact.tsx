@@ -11,7 +11,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Badge } from '../components/ui/badge';
 import { 
   Mail, 
-  Phone, 
   MessageCircle,
   Users,
   BookOpen,
@@ -19,12 +18,10 @@ import {
   Award,
   Headphones,
   CheckCircle,
-  ArrowRight,
   FileText,
   Lightbulb,
   Clock
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
 import SafeText from '../components/common/SafeText';
 
 export default function Contact() {

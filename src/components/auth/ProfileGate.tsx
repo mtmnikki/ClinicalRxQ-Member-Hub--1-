@@ -33,7 +33,7 @@ function ProfileList({
 }) {
   return (
     <div className="mt-3 divide-y rounded-md border bg-white">
-      {profiles.map((p) => {
+      {profiles && profiles.length > 0 && profiles.map((p) => {
         const active = selectedId === p.id;
         return (
           <button
@@ -83,7 +83,6 @@ interface ProfileSelectionModalProps {
 export default function ProfileSelectionModal({
   open,
   onClose,
-  forceShow = false,
 }: ProfileSelectionModalProps) {
   const { account } = useAuthStore();
   const { currentProfile, profiles, loadProfilesAndSetDefault, setCurrentProfile } = useProfileStore();
@@ -98,11 +97,12 @@ export default function ProfileSelectionModal({
     if (open && account?.id) {
       loadProfilesSafely();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, account?.id]);
 
   // Set initial selection when profiles load
   useEffect(() => {
-    if (profiles.length > 0 && !pickedId) {
+    if (profiles && profiles.length > 0 && !pickedId) {
       setPickedId(currentProfile?.id || profiles[0].id);
     }
   }, [profiles, currentProfile, pickedId]);

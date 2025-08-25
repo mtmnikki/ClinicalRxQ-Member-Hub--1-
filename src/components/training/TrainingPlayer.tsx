@@ -14,7 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { ScrollArea } from '../ui/scroll-area';
-import { ChevronLeft, ChevronRight, Play, Download, Film, CheckCircle2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, Film, CheckCircle2 } from 'lucide-react';
 import type { StorageFileItem } from '../../services/supabaseStorage';
 import { isVideo } from '../../services/supabaseStorage';
 import { useProfileStore } from '../../stores/profileStore';
@@ -164,7 +164,6 @@ export default function TrainingPlayer({
 
   const [index, setIndex] = useState<number>(0);
   const [progress, setProgress] = useState<TrainingProgress | null>(null);
-  const [loading, setLoading] = useState(true);
 
   // Load training progress when profile or program changes
   useEffect(() => {
@@ -172,7 +171,6 @@ export default function TrainingPlayer({
     
     const loadProgress = async () => {
       try {
-        setLoading(true);
         const moduleProgress = await getModuleProgress(currentProfile.id, trainingModuleId);
         setProgress(moduleProgress);
         
@@ -184,8 +182,6 @@ export default function TrainingPlayer({
         }
       } catch (error) {
         console.error('Failed to load training progress:', error);
-      } finally {
-        setLoading(false);
       }
     };
     

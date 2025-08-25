@@ -12,12 +12,11 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { useParams, useLocation, useNavigate, Link } from 'react-router-dom';
+import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
-import { Button } from '../components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs';
-import { ChevronDown, ChevronRight, LibraryBig } from 'lucide-react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import Breadcrumbs from '../components/common/Breadcrumbs';
 import SafeText from '../components/common/SafeText';
 import AppShell from '../components/layout/AppShell';

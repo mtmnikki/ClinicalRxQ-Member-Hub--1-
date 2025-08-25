@@ -9,8 +9,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Card, CardContent } from '../components/ui/card';
-import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import {
   Grid2x2,
@@ -19,7 +17,6 @@ import {
   FileSpreadsheet,
   LibraryBig,
   Play,
-  Download,
   Search,
 } from 'lucide-react';
 import AppShell from '../components/layout/AppShell';
@@ -531,7 +528,7 @@ export default function Resources() {
   const convertToStorageFileItem = (item: ResultItem): StorageFileItem => {
     // If catalogId exists, the id is the catalogId and we need to extract path from URL or use a placeholder
     const path = item.catalogId ? item.url?.replace(/^.*\/clinicalrxqfiles\//, '') || item.id : item.id;
-    const filename = path.split('/').pop() || item.name;
+    const filename = path ? path.split('/').pop() || item.name : item.name;
     
     return {
       path,

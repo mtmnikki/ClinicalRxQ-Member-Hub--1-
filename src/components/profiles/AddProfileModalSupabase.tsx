@@ -44,12 +44,9 @@ const ROLE_OPTIONS: Exclude<RoleType, null>[] = [
 /** Zod schema */
 const schema = z.object({
   role: z.enum(
-    ['Pharmacist-PIC', 'Pharmacist', 'Pharmacy Technician', 'Intern', 'Pharmacy'],
-    {
-      required_error: 'Role is required',
-    }
-  ),
-  firstName: z.string().min(1, 'First Name is required'),
+    ['Pharmacist-PIC', 'Pharmacist', 'Pharmacy Technician', 'Intern', 'Pharmacy']
+  ).optional(),
+  firstName: z.string().optional(),
   lastName: z.string().optional(),
   phoneNumber: z
     .string()
@@ -129,6 +126,12 @@ export default function AddProfileModal({
   const onSubmit = async (data: FormValues) => {
     if (!account?.id) {
       toast.error('No authenticated account found');
+      return;
+    }
+
+    // Ensure at least one field is provided
+    if (!data.role && !data.firstName && !data.lastName) {
+      toast.error('Please provide at least a role, first name, or last name');
       return;
     }
 

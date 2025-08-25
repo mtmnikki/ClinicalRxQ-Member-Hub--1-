@@ -21,7 +21,7 @@ import { useAuthStore } from '../stores/authStore';
 export default function Account() {
   const { account } = useAuth();
   const { profiles, loadProfilesAndSetDefault } = useProfileStore();
-  const { updateAccount } = useAuthStore();
+  const updateAccount = useAuthStore((state) => state.updateAccount);
   const [addOpen, setAddOpen] = useState(false);
 
   // Local editable state seeded from account
@@ -32,7 +32,7 @@ export default function Account() {
     address1: account?.address1 || '',
     city: account?.city || '',
     state: account?.state || '',
-    zipcode: account?.zipcode || '',
+    zipcode: account?.zipcode?.toString() ?? '',
   });
 
   useEffect(() => {
@@ -50,7 +50,7 @@ export default function Account() {
         address1: account.address1 || '',
         city: account.city || '',
         state: account.state || '',
-        zipcode: account.zipcode?.toString() || '',
+        zipcode: account.zipcode?.toString() ?? '',
       });
     }
   }, [account]);
@@ -253,43 +253,43 @@ export default function Account() {
 
         {/* Pharmacy Team Profiles */}
         <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <Settings className="h-5 w-5" />
-                Pharmacy Team Profiles
-              </CardTitle>
-              <Button onClick={() => setAddOpen(true)}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Profile
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {profiles.length === 0 ? (
-                  <div className="py-8 text-center text-slate-500">
-                    No team profiles yet. Click "Add Profile" to get started.
-                  </div>
-                ) : (
-                  profiles.map((profile) => (
-                    <div
-                      key={profile.id}
-                      className="flex items-center justify-between rounded-md border bg-slate-50 p-3"
-                    >
-                      <div>
-                        <div className="font-medium">
-                          {profile.displayName}
-                        </div>
-                        <div className="text-sm text-slate-500">{profile.role}</div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline">{profile.role}</Badge>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Settings className="h-5 w-5" />
+              Pharmacy Team Profiles
+            </CardTitle>
+            <Button onClick={() => setAddOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Profile
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {profiles.length === 0 ? (
+                <div className="py-8 text-center text-slate-500">
+                  No team profiles yet. Click "Add Profile" to get started.
+                </div>
+              ) : (
+                profiles.map((profile) => (
+                  <div
+                    key={profile.id}
+                    className="flex items-center justify-between rounded-md border bg-slate-50 p-3"
+                  >
+                    <div>
+                      <div className="font-medium">{profile.displayName}</div>
+                      <div className="text-sm text-slate-500">
+                        {profile.role}
                       </div>
                     </div>
-                  ))
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline">{profile.role}</Badge>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Add Profile Modal */}

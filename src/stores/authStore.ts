@@ -50,7 +50,7 @@ function mapRowToAccount(row: any): Account {
 export const useAuthStore = create<AuthState>((set) => {
   // Set up the listener outside the return object
   supabase.auth.onAuthStateChange(async (event, session) => {
-    if (session) {
+    if (session?.user?.id) {
       const { data: accountRow } = await supabase
         .from('accounts')
         .select('*')

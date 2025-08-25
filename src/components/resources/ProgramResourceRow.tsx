@@ -29,7 +29,7 @@ import {
  * Looks for patterns like [mm:ss] or (mm:ss); otherwise returns undefined.
  */
 function inferDurationLabel(name: string): string | undefined {
-  const m = name.match(/[\[\(]([0-5]?\d:[0-5]\d)[\]\)]/);
+  const m = name.match(/[[(]([0-5]?\d:[0-5]\d)[\])]/);
   return m?.[1];
 }
 
