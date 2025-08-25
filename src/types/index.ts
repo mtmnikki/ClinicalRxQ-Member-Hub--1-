@@ -16,7 +16,7 @@ export interface Account {
   zipcode?: string | null       // store ZIPs as string (keeps leading zeros)
 }
 
-export type RoleType = 'Pharmacist' | 'Technician' | 'Owner' | 'Manager'
+export type RoleType = 'Pharmacist-PIC' | 'Pharmacist' | 'Pharmacy Technician' | 'Intern' | 'Pharmacy'
 
 export interface MemberProfile {
   id: string
@@ -35,7 +35,7 @@ export function mapRowToAccount(row: any): Account {
   return {
     id: row.id,
     email: row.email,
-    pharmacyName: row.pharmacy_name,
+    pharmacyName: row.pharmacy_name ?? null,
     pharmacyPhone: row.pharmacy_phone ?? null,
     subscriptionStatus: (row.subscription_status ?? 'inactive') as SubscriptionStatus,
     createdAt: row.created_at,
@@ -50,11 +50,17 @@ export function mapRowToAccount(row: any): Account {
 export function mapRowToProfile(row: any): MemberProfile {
   return {
     id: row.id,
-    accountId: row.account_id,
-    fullName: row.full_name,
+    memberaccountId: row.member_account_id,
+    firstName: row.first_name ?? null,
+    lastName: row.last_name ?? null,
     role: row.role,
-    email: row.email ?? null,
-    phone: row.phone ?? null,
+    email: row.profile_email ?? null,
+    phone: row.phone_number ?? null,
+    dobMonth: row.dob_month ?? null,
+    dobDay: row.dob_day ?? null,
+    dobYear: row.dob_year ?? null,
+    licenseNumber: row.license_number ?? null,
+    nabpeprofileId: row.nabp_eprofile_id ?? null,
     isActive: !!row.is_active,
     createdAt: row.created_at,
     updatedAt: row.updated_at ?? null,
