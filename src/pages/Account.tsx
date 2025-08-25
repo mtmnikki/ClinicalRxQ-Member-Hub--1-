@@ -2,6 +2,7 @@
  * My Account page (editable)
  * - Authenticated accounts can update their own account information.
  * - Allows selecting, editing, and deleting team member profiles.
+ * - Refactored to use React Hook Form and Zod for validation.
  */
 
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -38,6 +39,24 @@ import { useAuth } from '../components/auth/AuthContext';
 import { useAuthStore } from '../stores/authStore';
 import { MemberProfile } from '@/types';
 import { supabase } from '@/services/supabase';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
+
+// Zod schema for account form validation
+const accountSchema = z.object({
+  pharmacyName: z.string().min(1, 'Pharmacy name is required'),
+  email: z.string().email('Invalid email address'),
+  pharmacyPhone: z.string().optional(),
+  address1: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  zipcode: z.string().optional(),
+});
+
+type AccountFormValues = z.infer<typeof accountSchema>;
 
 export default function Account() {
   const { account } = useAuth();
@@ -48,14 +67,13 @@ export default function Account() {
   const [profileToEdit, setProfileToEdit] = useState<MemberProfile | null>(null);
   const [profileToDelete, setProfileToDelete] = useState<MemberProfile | null>(null);
 
-  const [form, setForm] = useState({
-    email: account?.email || '',
-    pharmacyName: account?.pharmacyName || '',
-    pharmacyPhone: account?.pharmacyPhone || '',
-    address1: account?.address1 || '',
-    city: account?.city || '',
-    state: account?.state || '',
-    zipcode: account?.zipcode?.toString() ?? '',
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<AccountFormValues>({
+    resolver: zodResolver(accountSchema),
   });
 
   useEffect(() => {
@@ -66,7 +84,7 @@ export default function Account() {
 
   useEffect(() => {
     if (account) {
-      setForm({
+      reset({
         email: account.email || '',
         pharmacyName: account.pharmacyName || '',
         pharmacyPhone: account.pharmacyPhone || '',
@@ -76,7 +94,7 @@ export default function Account() {
         zipcode: account.zipcode?.toString() ?? '',
       });
     }
-  }, [account]);
+  }, [account, reset]);
 
   const handleSetActive = (profile: MemberProfile) => {
     setCurrentProfile(profile);
@@ -113,6 +131,18 @@ export default function Account() {
     }
   };
 
+  const onSaveAccount = async (data: AccountFormValues) => {
+    try {
+      await updateAccount({
+        ...data,
+        zipcode: data.zipcode ? parseInt(data.zipcode, 10) : null,
+      });
+      toast.success('Account updated successfully');
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to update account');
+    }
+  };
+
   const header = (
     <div className="mx-auto w-full max-w-[1280px] px-4 py-4">
       <Breadcrumbs
@@ -146,23 +176,6 @@ export default function Account() {
       </Badge>
     );
 
-  async function handleSave() {
-    try {
-      await updateAccount({
-        email: form.email,
-        pharmacyName: form.pharmacyName,
-        pharmacyPhone: form.pharmacyPhone || null,
-        address1: form.address1 || null,
-        city: form.city || null,
-        state: form.state || null,
-        zipcode: form.zipcode ? parseInt(form.zipcode, 10) : null,
-      });
-      toast.success('Account updated successfully');
-    } catch (e: any) {
-      toast.error(e?.message || 'Failed to update account');
-    }
-  }
-
   return (
     <AppShell sidebar={<MemberSidebar />} header={header}>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -175,130 +188,64 @@ export default function Account() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
+              <form onSubmit={handleSubmit(onSaveAccount)} className="space-y-4">
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div>
-                    <label className="mb-2 block text-sm font-medium">
-                      Pharmacy Name
-                    </label>
-                    <input
-                      type="text"
-                      value={form.pharmacyName}
-                      onChange={(e) =>
-                        setForm((s) => ({ ...s, pharmacyName: e.target.value }))
-                      }
-                      className="w-full rounded-md border p-2"
-                    />
+                    <Label htmlFor="pharmacyName">Pharmacy Name</Label>
+                    <Input id="pharmacyName" {...register('pharmacyName')} />
+                    {errors.pharmacyName && <p className="mt-1 text-xs text-red-600">{errors.pharmacyName.message}</p>}
                   </div>
                   <div>
-                    <label className="mb-2 block text-sm font-medium">
-                      Status
-                    </label>
+                    <Label>Status</Label>
                     <div className="flex h-10 items-center">{statusBadge}</div>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div>
-                    <label className="mb-2 block text-sm font-medium">
-                      Email
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <Mail className="h-4 w-4 text-slate-500" />
-                      <input
-                        type="email"
-                        value={form.email}
-                        onChange={(e) =>
-                          setForm((s) => ({ ...s, email: e.target.value }))
-                        }
-                        className="w-full rounded-md border p-2"
-                      />
+                    <Label htmlFor="email">Email</Label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                      <Input id="email" {...register('email')} className="pl-9" />
                     </div>
+                    {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email.message}</p>}
                   </div>
                   <div>
-                    <label className="mb-2 block text-sm font-medium">
-                      Phone
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <Phone className="h-4 w-4 text-slate-500" />
-                      <input
-                        type="text"
-                        value={form.pharmacyPhone ?? ''}
-                        onChange={(e) =>
-                          setForm((s) => ({
-                            ...s,
-                            pharmacyPhone: e.target.value,
-                          }))
-                        }
-                        className="w-full rounded-md border p-2"
-                      />
+                    <Label htmlFor="pharmacyPhone">Phone</Label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                      <Input id="pharmacyPhone" {...register('pharmacyPhone')} className="pl-9" />
                     </div>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div>
-                    <label className="mb-2 block text-sm font-medium">
-                      Address
-                    </label>
-                    <input
-                      type="text"
-                      value={form.address1 ?? ''}
-                      onChange={(e) =>
-                        setForm((s) => ({ ...s, address1: e.target.value }))
-                      }
-                      className="w-full rounded-md border p-2"
-                    />
+                    <Label htmlFor="address1">Address</Label>
+                    <Input id="address1" {...register('address1')} />
                   </div>
                   <div>
-                    <label className="mb-2 block text-sm font-medium">
-                      City
-                    </label>
-                    <input
-                      type="text"
-                      value={form.city ?? ''}
-                      onChange={(e) =>
-                        setForm((s) => ({ ...s, city: e.target.value }))
-                      }
-                      className="w-full rounded-md border p-2"
-                    />
+                    <Label htmlFor="city">City</Label>
+                    <Input id="city" {...register('city')} />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                   <div>
-                    <label className="mb-2 block text-sm font-medium">
-                      State
-                    </label>
-                    <input
-                      type="text"
-                      value={form.state ?? ''}
-                      onChange={(e) =>
-                        setForm((s) => ({ ...s, state: e.target.value }))
-                      }
-                      className="w-full rounded-md border p-2"
-                    />
+                    <Label htmlFor="state">State</Label>
+                    <Input id="state" {...register('state')} />
                   </div>
                   <div className="md:col-span-2">
-                    <label className="mb-2 block text-sm font-medium">
-                      Zip Code
-                    </label>
-                    <input
-                      type="text"
-                      value={form.zipcode ?? ''}
-                      onChange={(e) =>
-                        setForm((s) => ({ ...s, zipcode: e.target.value }))
-                      }
-                      className="w-full rounded-md border p-2"
-                    />
+                    <Label htmlFor="zipcode">Zip Code</Label>
+                    <Input id="zipcode" {...register('zipcode')} />
                   </div>
                 </div>
 
-                <Button onClick={handleSave}>
+                <Button type="submit" disabled={isSubmitting}>
                   <Settings className="mr-2 h-4 w-4" />
-                  Save changes
+                  {isSubmitting ? 'Saving...' : 'Save Changes'}
                 </Button>
-              </div>
+              </form>
             </CardContent>
           </Card>
         </div>
@@ -310,7 +257,7 @@ export default function Account() {
                 <Settings className="h-5 w-5" />
                 Pharmacy Team Profiles
               </CardTitle>
-              <Button onClick={() => setAddModalOpen(true)}>
+              <Button onClick={() => { setProfileToEdit(null); setAddModalOpen(true); }}>
                 <Plus className="mr-2 h-4 w-4" />
                 Add Profile
               </Button>

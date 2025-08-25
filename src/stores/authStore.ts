@@ -46,6 +46,7 @@ function mapRowToAccount(row: any): Account {
 
 // --- Zustand Store Definition ---
 export const useAuthStore = create<AuthState>((set) => {
+  // Set up the listener outside the main return object
   supabase.auth.onAuthStateChange(async (event, session) => {
     if (session) {
       const { data: accountRow } = await supabase
@@ -64,6 +65,7 @@ export const useAuthStore = create<AuthState>((set) => {
         });
         await useProfileStore.getState().loadProfilesAndSetDefault(session.user.id);
       } else {
+        // If no account row is found, the session is invalid, so sign out.
         await supabase.auth.signOut();
       }
     } else {
@@ -87,6 +89,8 @@ export const useAuthStore = create<AuthState>((set) => {
 
     checkSession: async () => {
       const { data: { session } } = await supabase.auth.getSession();
+      // If there's no session, we can immediately mark initialization as complete.
+      // If there is a session, the onAuthStateChange listener will handle setting the state.
       if (!session) {
         set({ isInitialized: true });
       }
