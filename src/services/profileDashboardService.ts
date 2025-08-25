@@ -56,7 +56,7 @@ export async function getRecentActivity(profileId: string): Promise<RecentActivi
   const { data, error } = await supabase
     .from('recent_activity')
     .select('*')
-    .eq('member_profile_id', profileId)
+    .eq('profile_id', profileId)
     .order('accessed_at', { ascending: false })
     .limit(10);
     
@@ -65,9 +65,9 @@ export async function getRecentActivity(profileId: string): Promise<RecentActivi
   return (data || []).map(row => ({
     id: row.id,
     resourceName: row.resource_name,
-    resourcePath: row.resource_path,
-    resourceUrl: row.resource_url,
-    programSlug: row.program_slug,
+    resourcePath: '', // Not in current schema
+    resourceUrl: '', // Not in current schema
+    programSlug: '', // Not in current schema
     accessedAt: row.accessed_at,
   }));
 }
@@ -77,38 +77,47 @@ export async function getAnnouncements(): Promise<Announcement[]> {
   const { data, error } = await supabase
     .from('announcements')
     .select('*')
-    .eq('is_active', true)
-    .order('date', { ascending: false })
+    .order('created_at', { ascending: false })
     .limit(5);
     
   if (error) throw error;
   
   return (data || []).map(row => ({
-    id: row.id,
+    id: row.id.toString(),
     title: row.title,
     body: row.body,
-    dateISO: row.date,
+    dateISO: row.created_at,
   }));
 }
 
 // Fetch bookmarked resources for specific profile
 export async function getBookmarkedResources(profileId: string): Promise<BookmarkedResource[]> {
+  // Join bookmarks with storage_files_catalog to get file details
   const { data, error } = await supabase
     .from('bookmarks')
-    .select('*')
-    .eq('member_profile_id', profileId)
+    .select(`
+      *,
+      storage_files_catalog (
+        file_name,
+        file_path,
+        file_url,
+        mime_type,
+        file_size
+      )
+    `)
+    .eq('profile_id', profileId)
     .order('created_at', { ascending: false });
     
   if (error) throw error;
   
   return (data || []).map(row => ({
     id: row.id,
-    path: row.resource_path,
-    title: row.resource_name,
-    filename: row.resource_path.split('/').pop() || row.resource_path,
-    url: row.resource_url || buildPublicUrl(row.resource_path),
-    mimeType: row.mime_type,
-    size: row.file_size,
+    path: row.storage_files_catalog?.file_path || '',
+    title: row.storage_files_catalog?.file_name || 'Unknown Resource',
+    filename: row.storage_files_catalog?.file_name || '',
+    url: row.storage_files_catalog?.file_url || '',
+    mimeType: row.storage_files_catalog?.mime_type || '',
+    size: row.storage_files_catalog?.file_size || 0,
     bookmarkedAt: row.created_at,
   }));
 }
@@ -120,22 +129,22 @@ export async function getTrainingProgress(profileId: string): Promise<TrainingPr
     .select(`
       *,
       training_modules (
-        module_name
+        name
       )
     `)
     .eq('member_profile_id', profileId)
-    .order('start_time', { ascending: false });
+    .order('started_at', { ascending: false });
     
   if (error) throw error;
   
   return (data || []).map(row => ({
     id: row.id,
     trainingModuleId: row.training_module_id,
-    moduleName: row.training_modules?.module_name || 'Unknown Module',
-    startTime: row.start_time,
-    completedTime: row.completed_time,
+    moduleName: row.training_modules?.name || 'Unknown Module',
+    startTime: row.started_at,
+    completedTime: row.completed_at,
     completionPercentage: row.completion_percentage || 0,
-    completionStatus: row.completion_status || 'not_started',
+    completionStatus: row.is_completed ? 'completed' : (row.started_at ? 'in_progress' : 'not_started'),
   }));
 }
 
@@ -152,16 +161,11 @@ export async function trackResourceAccess(
 ) {
   const { error } = await supabase
     .from('recent_activity')
-    .upsert({
-      member_profile_id: profileId,
+    .insert({
+      profile_id: profileId,
       resource_name: resource.name,
-      resource_path: resource.path,
-      resource_url: resource.url,
-      program_slug: resource.programSlug,
-      mime_type: resource.mimeType,
+      resource_type: resource.mimeType || 'file',
       accessed_at: new Date().toISOString()
-    }, {
-      onConflict: 'member_profile_id,resource_path'
     });
     
   if (error) {
@@ -181,15 +185,21 @@ export async function addBookmark(
     fileSize?: number;
   }
 ) {
+  // First find the resource_id from storage_files_catalog
+  const { data: fileData, error: fileError } = await supabase
+    .from('storage_files_catalog')
+    .select('id')
+    .eq('file_path', resource.path)
+    .single();
+  
+  if (fileError) throw fileError;
+  
   const { error } = await supabase
     .from('bookmarks')
     .insert({
-      member_profile_id: profileId,
-      resource_path: resource.path,
-      resource_name: resource.name,
-      resource_url: resource.url,
-      mime_type: resource.mimeType,
-      file_size: resource.fileSize,
+      profile_id: profileId,
+      resource_type: 'file',
+      resource_id: fileData.id,
     });
     
   if (error) throw error;
@@ -197,22 +207,40 @@ export async function addBookmark(
 
 // Remove bookmark for specific profile
 export async function removeBookmark(profileId: string, resourcePath: string) {
+  // First find the resource_id from storage_files_catalog
+  const { data: fileData, error: fileError } = await supabase
+    .from('storage_files_catalog')
+    .select('id')
+    .eq('file_path', resourcePath)
+    .single();
+  
+  if (fileError) throw fileError;
+  
   const { error } = await supabase
     .from('bookmarks')
     .delete()
-    .eq('member_profile_id', profileId)
-    .eq('resource_path', resourcePath);
+    .eq('profile_id', profileId)
+    .eq('resource_id', fileData.id);
     
   if (error) throw error;
 }
 
 // Check if resource is bookmarked by profile
 export async function isBookmarked(profileId: string, resourcePath: string): Promise<boolean> {
+  // First find the resource_id from storage_files_catalog
+  const { data: fileData, error: fileError } = await supabase
+    .from('storage_files_catalog')
+    .select('id')
+    .eq('file_path', resourcePath)
+    .single();
+  
+  if (fileError) return false; // File not found in catalog
+  
   const { data, error } = await supabase
     .from('bookmarks')
     .select('id')
-    .eq('member_profile_id', profileId)
-    .eq('resource_path', resourcePath)
+    .eq('profile_id', profileId)
+    .eq('resource_id', fileData.id)
     .limit(1);
     
   if (error) throw error;
@@ -232,10 +260,10 @@ export async function startTrainingModule(
     .upsert({
       member_profile_id: profileId,
       training_module_id: trainingModuleId,
-      module_name: moduleName,
-      start_time: new Date().toISOString(),
-      completion_status: 'in_progress',
+      started_at: new Date().toISOString(),
+      is_completed: false,
       completion_percentage: 0,
+      attempts: 1,
     }, {
       onConflict: 'member_profile_id,training_module_id'
     });
@@ -248,15 +276,15 @@ export async function updateTrainingProgress(
   profileId: string,
   trainingModuleId: string,
   completionPercentage: number,
-  completionStatus: 'in_progress' | 'completed' = 'in_progress'
+  isCompleted: boolean = false
 ): Promise<void> {
   const updateData: any = {
     completion_percentage: Math.min(100, Math.max(0, completionPercentage)),
-    completion_status: completionStatus,
+    is_completed: isCompleted,
   };
   
-  if (completionStatus === 'completed') {
-    updateData.completed_time = new Date().toISOString();
+  if (isCompleted) {
+    updateData.completed_at = new Date().toISOString();
   }
 
   const { error } = await supabase
@@ -273,7 +301,7 @@ export async function completeTrainingModule(
   profileId: string,
   trainingModuleId: string
 ): Promise<void> {
-  await updateTrainingProgress(profileId, trainingModuleId, 100, 'completed');
+  await updateTrainingProgress(profileId, trainingModuleId, 100, true);
 }
 
 // Get progress for a specific training module
@@ -296,11 +324,11 @@ export async function getModuleProgress(
   return {
     id: data.id,
     trainingModuleId: data.training_module_id,
-    moduleName: data.module_name || 'Unknown Module',
-    startTime: data.start_time,
-    completedTime: data.completed_time,
+    moduleName: 'Unknown Module', // Not stored in progress table
+    startTime: data.started_at,
+    completedTime: data.completed_at,
     completionPercentage: data.completion_percentage || 0,
-    completionStatus: data.completion_status || 'not_started',
+    completionStatus: data.is_completed ? 'completed' : (data.started_at ? 'in_progress' : 'not_started'),
   };
 }
 
