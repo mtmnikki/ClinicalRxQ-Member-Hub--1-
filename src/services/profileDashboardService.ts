@@ -46,8 +46,6 @@ export async function getDashboardPrograms() {
   return programs.map(p => ({
     ...p,
     icon: getIconForProgram(p.slug),
-    resourceCount: 50, // TODO: Calculate from storage if needed
-    lastUpdatedISO: new Date().toISOString()
   }));
 }
 
