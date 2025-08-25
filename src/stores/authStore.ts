@@ -20,6 +20,7 @@ interface AuthState {
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   checkSession: () => Promise<void>;
+  updateAccount: (updates: Partial<Account>) => Promise<Account | null>;
 }
 
 /**
@@ -105,5 +106,40 @@ export const useAuthStore = create<AuthState>((set) => ({
       account: null,
       isAuthenticated: false,
     });
+  },
+
+  /**
+   * Updates the current account information.
+   */
+  updateAccount: async (updates) => {
+    const currentUser = supabase.auth.getUser();
+    const userId = (await currentUser).data.user?.id;
+    
+    if (!userId) {
+      throw new Error('No authenticated user');
+    }
+
+    // Prepare the update payload with snake_case fields
+    const updatePayload: any = {};
+    if (updates.email !== undefined) updatePayload.email = updates.email;
+    if (updates.pharmacyName !== undefined) updatePayload.pharmacy_name = updates.pharmacyName;
+    if (updates.pharmacyPhone !== undefined) updatePayload.pharmacy_phone = updates.pharmacyPhone;
+    if (updates.address1 !== undefined) updatePayload.address1 = updates.address1;
+    if (updates.city !== undefined) updatePayload.city = updates.city;
+    if (updates.state !== undefined) updatePayload.state = updates.state;
+    if (updates.zipcode !== undefined) updatePayload.zipcode = updates.zipcode;
+
+    const { data, error } = await supabase
+      .from('accounts')
+      .update(updatePayload)
+      .eq('id', userId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    const updatedAccount = data ? mapRowToAccount(data) : null;
+    set({ account: updatedAccount });
+    return updatedAccount;
   },
 }));

@@ -41,6 +41,8 @@ export interface StorageFileItem {
   mimeType?: string;
   /** Optional size if known */
   size?: number;
+  /** Optional catalog ID from storage_files_catalog table */
+  catalogId?: string;
 }
 
 /**

@@ -44,7 +44,7 @@ function getProgramDisplay(path: string): string {
 
 export default function ProfileBookmarksPanel({ className }: ProfileBookmarksPanelProps) {
   const { currentProfile } = useProfileStore();
-  const { bookmarkedPaths, loadBookmarks, toggleBookmark } = useResourceBookmarkStore();
+  const { bookmarkedResources, loadBookmarks, toggleBookmark } = useResourceBookmarkStore();
   
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -58,10 +58,9 @@ export default function ProfileBookmarksPanel({ className }: ProfileBookmarksPan
     }
   }, [currentProfile?.id, loadBookmarks]);
 
-  // Convert bookmarked paths to file items (would need to fetch from storage)
-  // For now, we'll create mock items from the paths
+  // Convert bookmarked resources to file items
   useEffect(() => {
-    const files: StorageFileItem[] = Array.from(bookmarkedPaths).map(path => {
+    const files: StorageFileItem[] = Array.from(bookmarkedResources.entries()).map(([path, catalogId]) => {
       const filename = path.split('/').pop() || path;
       const extension = filename.split('.').pop()?.toLowerCase() || '';
       
@@ -72,11 +71,12 @@ export default function ProfileBookmarksPanel({ className }: ProfileBookmarksPan
         url: `${process.env.VITE_SUPABASE_URL}/storage/v1/object/public/clinicalrxqfiles/${encodeURI(path)}`,
         mimeType: getMimeTypeFromExtension(extension),
         size: 0,
+        catalogId,
       };
     });
     
     setBookmarkedFiles(files);
-  }, [bookmarkedPaths]);
+  }, [bookmarkedResources]);
 
   // Close on Escape key
   useEffect(() => {

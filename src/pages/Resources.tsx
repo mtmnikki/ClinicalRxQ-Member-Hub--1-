@@ -42,6 +42,7 @@ interface ResultItem {
   url?: string;
   mimeType?: string;
   source: 'global' | 'program';
+  catalogId?: string;
 }
 
 /** Supported filters (extended) */
@@ -334,13 +335,14 @@ export default function Resources() {
   const [programLoaded, setProgramLoaded] = useState(false);
 
   /** Map storage item to ResultItem */
-  function mapGlobal(items: { path: string; title: string; url: string; mimeType?: string }[]): ResultItem[] {
+  function mapGlobal(items: StorageFileItem[]): ResultItem[] {
     return items.map((i) => ({
-      id: i.path,
+      id: i.catalogId || i.path, // Use catalog ID if available, otherwise fall back to path
       name: i.title,
       url: i.url,
       mimeType: i.mimeType,
       source: 'global' as const,
+      catalogId: i.catalogId, // Store catalog ID for bookmarking
     }));
   }
 
@@ -437,14 +439,15 @@ export default function Resources() {
         const all: ResultItem[] = [];
         await Promise.all((ProgramSlugs as readonly ProgramSlug[]).map(async (slug) => {
           const grouped = await getProgramResourcesGrouped(slug);
-          const append = (items: { path: string; title: string; url: string; mimeType?: string }[]) => {
+          const append = (items: StorageFileItem[]) => {
             for (const it of items) {
               all.push({
-                id: it.path,
+                id: it.catalogId || it.path,
                 name: it.title,
                 url: it.url,
                 mimeType: it.mimeType,
                 source: 'program',
+                catalogId: it.catalogId,
               });
             }
           };
@@ -525,14 +528,21 @@ export default function Resources() {
   }, [items, q]);
 
   /** Convert ResultItem to StorageFileItem for ResourceCard */
-  const convertToStorageFileItem = (item: ResultItem): StorageFileItem => ({
-    path: item.id,
-    title: item.name,
-    filename: item.id.split('/').pop() || item.name,
-    url: item.url || '',
-    mimeType: item.mimeType,
-    size: 0, // Not available from ResultItem
-  });
+  const convertToStorageFileItem = (item: ResultItem): StorageFileItem => {
+    // If catalogId exists, the id is the catalogId and we need to extract path from URL or use a placeholder
+    const path = item.catalogId ? item.url?.replace(/^.*\/clinicalrxqfiles\//, '') || item.id : item.id;
+    const filename = path.split('/').pop() || item.name;
+    
+    return {
+      path,
+      title: item.name,
+      filename,
+      url: item.url || '',
+      mimeType: item.mimeType,
+      size: 0, // Not available from ResultItem
+      catalogId: item.catalogId,
+    };
+  };
 
   /** Handlers: update both state and URL where applicable */
   function go(next: FilterKey) {

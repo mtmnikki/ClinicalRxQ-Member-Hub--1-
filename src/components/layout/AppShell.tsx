@@ -10,6 +10,7 @@
 
 import React from 'react';
 import { useUiStore, SIDEBAR_WIDTH_COLLAPSED, SIDEBAR_WIDTH_EXPANDED } from '../../stores/uiStore';
+import ProfileBookmarksPanel from '../resources/ProfileBookmarksPanel';
 
 interface AppShellProps {
   /** Left sidebar content (e.g., MemberSidebar) */
@@ -56,6 +57,9 @@ export default function AppShell({ sidebar, header, children }: AppShellProps) {
         {/* Page content container */}
         <main className="mx-auto w-full max-w-[1440px] px-3 py-4 text-[13px]">{children}</main>
       </div>
+      
+      {/* Profile Bookmarks Panel - floating button + drawer */}
+      <ProfileBookmarksPanel />
     </div>
   );
 }

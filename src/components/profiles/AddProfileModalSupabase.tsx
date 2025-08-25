@@ -49,16 +49,16 @@ type FormValues = z.infer<typeof schema>;
 
 interface AddProfileModalProps {
   open: boolean;
-  onClose: () => void;
-  onSuccess?: () => void;
+  onOpenChange: (open: boolean) => void;
+  onProfileCreated?: () => void;
   profileId?: string;
   defaultValues?: Partial<FormValues>;
 }
 
 export default function AddProfileModal({ 
   open, 
-  onClose, 
-  onSuccess,
+  onOpenChange, 
+  onProfileCreated,
   profileId,
   defaultValues 
 }: AddProfileModalProps) {
@@ -128,8 +128,8 @@ export default function AddProfileModal({
         toast.success('Profile created successfully');
       }
 
-      onSuccess?.();
-      onClose();
+      onProfileCreated?.();
+      onOpenChange(false);
     } catch (error) {
       console.error('Profile save error:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to save profile');
@@ -139,7 +139,7 @@ export default function AddProfileModal({
   const watchedRole = watch('roleType');
 
   return (
-    <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px]">
         <form onSubmit={handleSubmit(onSubmit)}>
           <DialogHeader>
@@ -289,7 +289,7 @@ export default function AddProfileModal({
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting}>
