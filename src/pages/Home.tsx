@@ -18,7 +18,7 @@ import {
   Clock,
   CheckCircle,
   ArrowRight,
-  Start,
+ Star,
   Target,
   Zap,
   Shield,
@@ -182,8 +182,6 @@ const HomePage: React.FC = () => {
     }
   ]
 
-  // Keep existing memoized list for other preserved sections if needed.
-  const preservedPrograms = useMemo(() => [], [])
 
   return (
     <div className="min-h-screen bg-white">
@@ -191,7 +189,7 @@ const HomePage: React.FC = () => {
 
       {/* Hero Section (REPLACED - exact as provided) */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-300 via-cyan-200 to-Teal-200 opacity-10"></div>
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-300 via-cyan-200 to-teal-200 opacity-10"></div>
         <div className="absolute inset-0 bg-[url('https://pub-cdn.sider.ai/u/U03VH4NVNOE/web-coder/687655a5b1dac45b18db4f5c/resource/cd53336d-d6e2-4c6b-bf62-bba9d1f359ba.png')] bg-center bg-cover opacity-20"></div>
 
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -216,7 +214,7 @@ const HomePage: React.FC = () => {
                 <Link to="/contact">
                   <Button
                     size="lg"
-                    className="bg-gradient-to-r from-blue-500 to-teal-300 hover:from-cyan-500 hover:to-teal-300 hover-border-2 border-gradient-blue-500 to-teal-300 text-white shadow-lg"
+                    className="bg-gradient-to-r from-blue-500 to-teal-300 hover:from-cyan-500 hover:to-teal-300 text-white shadow-lg border-2 border-transparent"
                   >
                     <Play className="mr-2 h-5 w-5" />
                     Learn More
@@ -226,7 +224,7 @@ const HomePage: React.FC = () => {
                   <Button
                     size="lg"
                     variant="outline"
-                    className="bg-transparent border-blue-600 text-blue-700 hover: hover:bg-blue-200"
+                    className="bg-transparent border-blue-600 text-blue-700 hover:bg-blue-50"
                   >
                     Get Started Today
                     <ArrowRight className="ml-2 h-5 w-5" />
@@ -813,6 +811,7 @@ const HomePage: React.FC = () => {
                 className="flex-1 rounded-md border border-white/20 bg-white/10 px-3 py-2 text-sm text-white placeholder-white/60 outline-none"
                 placeholder="Enter your email"
               />
+              <Star className="h-8 w-8 text-teal-400" />
               <Button>Get Started</Button>
             </div>
             <div className="mt-3 text-xs text-white/70">

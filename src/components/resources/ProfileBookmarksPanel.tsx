@@ -60,6 +60,11 @@ export default function ProfileBookmarksPanel({ className }: ProfileBookmarksPan
 
   // Convert bookmarked resources to file items
   useEffect(() => {
+    if (!bookmarkedResources) {
+      setBookmarkedFiles([]);
+      return;
+    }
+
     const files: StorageFileItem[] = Array.from(bookmarkedResources.entries()).map(([path, catalogId]) => {
       const filename = path.split('/').pop() || path;
       const extension = filename.split('.').pop()?.toLowerCase() || '';
