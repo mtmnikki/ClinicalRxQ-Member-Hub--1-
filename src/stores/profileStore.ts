@@ -1,140 +1,86 @@
-// src/stores/profileStore.ts
+import { create } from 'zustand'
+import { supabase } from '@/services/supabase'
+import type { MemberProfile } from '@/types'
+import { mapRowToProfile } from '@/types'
 
-/**
- * Profile Store (Supabase version)
- * - Manages the current selected member profile for the authenticated account
- * - Stores profile selection in sessionStorage for the current session
- * - All user activity tracking is done at the profile level
- */
+const KEY = 'crxq.currentProfile'
 
-import { create } from 'zustand';
-import { supabase } from '@/services/supabase';
-import type { MemberProfile } from '@/types';
-
-interface ProfileState {
-  currentProfile: MemberProfile | null;
-  profiles: MemberProfile[];
-  loading: boolean;
-  
-  // Actions
-  setCurrentProfile: (profile: MemberProfile | null) => void;
-  loadProfilesAndSetDefault: (accountId: string) => Promise<void>;
-  clearProfile: () => void;
-  refreshCurrentProfile: () => Promise<void>;
-}
-
-// Session storage key for current profile
-const CURRENT_PROFILE_KEY = 'crxq_current_profile';
-
-// Helper to save current profile to sessionStorage
-function saveCurrentProfile(profile: MemberProfile | null) {
+function loadSavedProfile(): MemberProfile | null {
   try {
-    if (profile) {
-      sessionStorage.setItem(CURRENT_PROFILE_KEY, JSON.stringify(profile));
-    } else {
-      sessionStorage.removeItem(CURRENT_PROFILE_KEY);
-    }
-  } catch (error) {
-    console.warn('Failed to save current profile to sessionStorage:', error);
+    const raw = sessionStorage.getItem(KEY)
+    return raw ? (JSON.parse(raw) as MemberProfile) : null
+  } catch {
+    return null
   }
 }
-
-// Helper to load current profile from sessionStorage
-function loadCurrentProfile(): MemberProfile | null {
+function saveProfile(p: MemberProfile | null) {
   try {
-    const stored = sessionStorage.getItem(CURRENT_PROFILE_KEY);
-    return stored ? JSON.parse(stored) : null;
-  } catch (error) {
-    console.warn('Failed to load current profile from sessionStorage:', error);
-    return null;
-  }
+    if (p) sessionStorage.setItem(KEY, JSON.stringify(p))
+    else sessionStorage.removeItem(KEY)
+  } catch { /* ignore */ }
 }
 
-// Map database row to MemberProfile type
-function mapRowToProfile(row: any): MemberProfile {
-  return {
-    id: row.id,
-    accountId: row.member_account_id,
-    role: row.role,
-    firstName: row.first_name,
-    lastName: row.last_name,
-    phoneNumber: row.phone_number,
-    profileEmail: row.profile_email,
-    dobMonth: row.dob_month,
-    dobDay: row.dob_day,
-    dobYear: row.dob_year,
-    licenseNumber: row.license_number,
-    nabpEprofileId: row.nabp_eprofile_id,
-    isActive: row.is_active,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-    displayName: row.display_name,
-  };
+type ProfileState = {
+  currentProfile: MemberProfile | null
+  profiles: MemberProfile[]
+  loadProfiles: (accountId: string) => Promise<void>
+  setCurrentProfile: (p: MemberProfile | null) => void
+  addProfile: (p: Omit<MemberProfile, 'id'|'createdAt'|'updatedAt'>) => Promise<MemberProfile>
+  refreshCurrentProfile: () => Promise<void>
 }
 
 export const useProfileStore = create<ProfileState>((set, get) => ({
-  currentProfile: loadCurrentProfile(),
+  currentProfile: loadSavedProfile(),
   profiles: [],
-  loading: false,
 
-  setCurrentProfile: (profile: MemberProfile | null) => {
-    saveCurrentProfile(profile);
-    set({ currentProfile: profile });
+  async loadProfiles(accountId) {
+    const { data, error } = await supabase
+      .from('member_profiles')
+      .select('id,account_id,full_name,role,email,phone,is_active,created_at,updated_at')
+      .eq('account_id', accountId)
+      .order('created_at', { ascending: true })
+
+    if (error) throw error
+    const profiles = (data ?? []).map(mapRowToProfile)
+    set({ profiles })
   },
 
-  loadProfilesAndSetDefault: async (accountId: string) => {
-    try {
-      set({ loading: true });
-      
-      const { data, error } = await supabase
-        .from('member_profiles')
-        .select('*')
-        .eq('member_account_id', accountId)
-        .eq('is_active', true)
-        .order('created_at', { ascending: true });
+  setCurrentProfile(p) {
+    set({ currentProfile: p })
+    saveProfile(p)
+  },
 
-      if (error) throw error;
-
-      const profiles = (data || []).map(mapRowToProfile);
-      set({ profiles });
-
-      const { currentProfile } = get();
-      if (!currentProfile && profiles.length > 0) {
-        get().setCurrentProfile(profiles[0]);
-      }
-
-    } catch (error) {
-      console.error('Failed to load profiles:', error);
-      set({ profiles: [] });
-      throw error;
-    } finally {
-      set({ loading: false });
+  async addProfile(p) {
+    const payload = {
+      account_id: p.accountId,
+      full_name: p.fullName,
+      role: p.role,
+      email: p.email ?? null,
+      phone: p.phone ?? null,
+      is_active: p.isActive ?? true,
     }
+    const { data, error } = await supabase
+      .from('member_profiles')
+      .insert(payload)
+      .select()
+      .single()
+    if (error) throw error
+    const created = mapRowToProfile(data)
+    set({ profiles: [...get().profiles, created] })
+    return created
   },
 
-  clearProfile: () => {
-    saveCurrentProfile(null);
-    set({ currentProfile: null, profiles: [] });
+  async refreshCurrentProfile() {
+    const p = get().currentProfile
+    if (!p) return
+    const { data, error } = await supabase
+      .from('member_profiles')
+      .select('id,account_id,full_name,role,email,phone,is_active,created_at,updated_at')
+      .eq('id', p.id)
+      .single()
+    if (error) throw error
+    const updated = mapRowToProfile(data)
+    set({ currentProfile: updated })
+    saveProfile(updated)
   },
-
-  refreshCurrentProfile: async () => {
-    const { currentProfile } = get();
-    if (!currentProfile?.id) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('member_profiles')
-        .select('*')
-        .eq('id', currentProfile.id)
-        .single();
-
-      if (error) throw error;
-
-      const updatedProfile = mapRowToProfile(data);
-      set({ currentProfile: updatedProfile });
-      saveCurrentProfile(updatedProfile);
-    } catch (error) {
-      console.error('Failed to refresh current profile:', error);
-    }
-  },
-}));
+}))
