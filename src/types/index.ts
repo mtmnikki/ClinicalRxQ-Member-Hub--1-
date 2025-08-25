@@ -66,3 +66,40 @@ export function mapRowToProfile(row: any): MemberProfile {
     updatedAt: row.updated_at ?? null,
   }
 }
+export type PharmacyProfile = MemberProfile;
+
+/**
+ * Remaining domain types (unchanged)
+ */
+
+export interface Program {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  duration: string;
+  level: 'beginner' | 'intermediate' | 'advanced';
+  modules: Module[];
+  resources: Resource[];
+  thumbnail: string;
+}
+
+export interface Module {
+  id: string;
+  title: string;
+  description: string;
+  videoUrl?: string;
+  content: string;
+  duration: string;
+  order: number;
+  completed?: boolean;
+}
+
+export interface Resource {
+  id: string;
+  title: string;
+  type: 'pdf' | 'video' | 'document' | 'link';
+  url: string;
+  description: string;
+  category: string;
+}
