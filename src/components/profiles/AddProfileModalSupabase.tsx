@@ -1,7 +1,7 @@
 /**
  * AddProfileModal (Supabase version)
  * - Creates or edits a MemberProfile in Supabase
- * - Required fields: roleType, firstName, lastName
+ * - Required fields: role, firstName
  * - Optional fields validated lightly if provided
  */
 
@@ -23,24 +23,64 @@ import {
 import { Button } from '../ui/button';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../ui/select';
 import { toast } from 'sonner';
 
 /** Roles dropdown */
-const ROLE_OPTIONS: RoleType[] = ['Pharmacist-PIC', 'Pharmacist-Staff', 'Pharmacy Technician'];
+const ROLE_OPTIONS: Exclude<RoleType, null>[] = [
+  'Pharmacist-PIC',
+  'Pharmacist',
+  'Pharmacy Technician',
+  'Intern',
+  'Pharmacy',
+];
 
 /** Zod schema */
 const schema = z.object({
-  roleType: z.enum(['Pharmacist-PIC', 'Pharmacist-Staff', 'Pharmacy Technician'], {
-    required_error: 'Role is required',
-  }),
+  role: z.enum(
+    ['Pharmacist-PIC', 'Pharmacist', 'Pharmacy Technician', 'Intern', 'Pharmacy'],
+    {
+      required_error: 'Role is required',
+    }
+  ),
   firstName: z.string().min(1, 'First Name is required'),
-  lastName: z.string().min(1, 'Last Name is required'),
-  phoneNumber: z.string().optional().refine((v) => !v || /^[0-9+()\-\s]{7,}$/.test(v), { message: 'Invalid phone number' }),
-  profileEmail: z.string().optional().refine((v) => !v || /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v), { message: 'Invalid email' }),
-  dobMonth: z.string().optional().refine((v) => !v || /^(0[1-9]|1[0-2])$/.test(v), { message: 'Use two digits (01-12)' }),
-  dobDay: z.string().optional().refine((v) => !v || /^(0[1-9]|[12][0-9]|3[01])$/.test(v), { message: 'Use two digits (01-31)' }),
-  dobYear: z.string().optional().refine((v) => !v || /^(19|20)\d{2}$/.test(v), { message: 'Use four digits (YYYY)' }),
+  lastName: z.string().optional(),
+  phoneNumber: z
+    .string()
+    .optional()
+    .refine((v) => !v || /^[0-9+()\-\s]{7,}$/.test(v), {
+      message: 'Invalid phone number',
+    }),
+  profileEmail: z
+    .string()
+    .optional()
+    .refine((v) => !v || /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v), {
+      message: 'Invalid email',
+    }),
+  dobMonth: z
+    .string()
+    .optional()
+    .refine((v) => !v || /^(0[1-9]|1[0-2])$/.test(v), {
+      message: 'Use two digits (01-12)',
+    }),
+  dobDay: z
+    .string()
+    .optional()
+    .refine((v) => !v || /^(0[1-9]|[12][0-9]|3[01])$/.test(v), {
+      message: 'Use two digits (01-31)',
+    }),
+  dobYear: z
+    .string()
+    .optional()
+    .refine((v) => !v || /^(19|20)\d{2}$/.test(v), {
+      message: 'Use four digits (YYYY)',
+    }),
   licenseNumber: z.string().optional(),
   nabpEprofileId: z.string().optional(),
 });
@@ -55,15 +95,15 @@ interface AddProfileModalProps {
   defaultValues?: Partial<FormValues>;
 }
 
-export default function AddProfileModal({ 
-  open, 
-  onOpenChange, 
+export default function AddProfileModal({
+  open,
+  onOpenChange,
   onProfileCreated,
   profileId,
-  defaultValues 
+  defaultValues,
 }: AddProfileModalProps) {
   const { account } = useAuthStore();
-  
+
   const {
     register,
     handleSubmit,
@@ -73,7 +113,7 @@ export default function AddProfileModal({
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: defaultValues || {
-      roleType: undefined,
+      role: undefined,
       firstName: '',
       lastName: '',
       phoneNumber: '',
@@ -95,9 +135,9 @@ export default function AddProfileModal({
     try {
       const profileData = {
         member_account_id: account.id,
-        role_type: data.roleType,
+        role: data.role,
         first_name: data.firstName,
-        last_name: data.lastName,
+        last_name: data.lastName || null,
         phone_number: data.phoneNumber || null,
         profile_email: data.profileEmail || null,
         dob_month: data.dobMonth || null,
@@ -106,6 +146,7 @@ export default function AddProfileModal({
         license_number: data.licenseNumber || null,
         nabp_eprofile_id: data.nabpEprofileId || null,
         is_active: true,
+        // display_name is handled by the database trigger
       };
 
       if (profileId) {
@@ -132,32 +173,41 @@ export default function AddProfileModal({
       onOpenChange(false);
     } catch (error) {
       console.error('Profile save error:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to save profile');
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to save profile'
+      );
     }
   };
 
-  const watchedRole = watch('roleType');
+  const watchedRole = watch('role');
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px]">
         <form onSubmit={handleSubmit(onSubmit)}>
           <DialogHeader>
-            <DialogTitle>{profileId ? 'Edit' : 'Add'} Team Member Profile</DialogTitle>
+            <DialogTitle>
+              {profileId ? 'Edit' : 'Add'} Team Member Profile
+            </DialogTitle>
             <DialogDescription>
-              {profileId ? 'Update the team member information below.' : 'Create a new profile for a team member.'}
+              {profileId
+                ? 'Update the team member information below.'
+                : 'Create a new profile for a team member.'}
             </DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
-            {/* Role Type */}
+            {/* Role */}
             <div>
-              <Label htmlFor="roleType">Role *</Label>
+              <Label htmlFor="role">Role *</Label>
               <Select
                 value={watchedRole}
-                onValueChange={(value: RoleType) => setValue('roleType', value)}
+                onValueChange={(value) => setValue('role', value as Exclude<RoleType, null>)}
               >
-                <SelectTrigger id="roleType" className={errors.roleType ? 'border-red-500' : ''}>
+                <SelectTrigger
+                  id="role"
+                  className={errors.role ? 'border-red-500' : ''}
+                >
                   <SelectValue placeholder="Select a role..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -168,8 +218,10 @@ export default function AddProfileModal({
                   ))}
                 </SelectContent>
               </Select>
-              {errors.roleType && (
-                <p className="text-sm text-red-500 mt-1">{errors.roleType.message}</p>
+              {errors.role && (
+                <p className="mt-1 text-sm text-red-500">
+                  {errors.role.message}
+                </p>
               )}
             </div>
 
@@ -183,18 +235,22 @@ export default function AddProfileModal({
                   className={errors.firstName ? 'border-red-500' : ''}
                 />
                 {errors.firstName && (
-                  <p className="text-sm text-red-500 mt-1">{errors.firstName.message}</p>
+                  <p className="mt-1 text-sm text-red-500">
+                    {errors.firstName.message}
+                  </p>
                 )}
               </div>
               <div>
-                <Label htmlFor="lastName">Last Name *</Label>
+                <Label htmlFor="lastName">Last Name</Label>
                 <Input
                   id="lastName"
                   {...register('lastName')}
                   className={errors.lastName ? 'border-red-500' : ''}
                 />
                 {errors.lastName && (
-                  <p className="text-sm text-red-500 mt-1">{errors.lastName.message}</p>
+                  <p className="mt-1 text-sm text-red-500">
+                    {errors.lastName.message}
+                  </p>
                 )}
               </div>
             </div>
@@ -211,7 +267,9 @@ export default function AddProfileModal({
                   className={errors.phoneNumber ? 'border-red-500' : ''}
                 />
                 {errors.phoneNumber && (
-                  <p className="text-sm text-red-500 mt-1">{errors.phoneNumber.message}</p>
+                  <p className="mt-1 text-sm text-red-500">
+                    {errors.phoneNumber.message}
+                  </p>
                 )}
               </div>
               <div>
@@ -224,7 +282,9 @@ export default function AddProfileModal({
                   className={errors.profileEmail ? 'border-red-500' : ''}
                 />
                 {errors.profileEmail && (
-                  <p className="text-sm text-red-500 mt-1">{errors.profileEmail.message}</p>
+                  <p className="mt-1 text-sm text-red-500">
+                    {errors.profileEmail.message}
+                  </p>
                 )}
               </div>
             </div>
@@ -241,7 +301,9 @@ export default function AddProfileModal({
                     className={errors.dobMonth ? 'border-red-500' : ''}
                   />
                   {errors.dobMonth && (
-                    <p className="text-xs text-red-500 mt-1">{errors.dobMonth.message}</p>
+                    <p className="mt-1 text-xs text-red-500">
+                      {errors.dobMonth.message}
+                    </p>
                   )}
                 </div>
                 <div>
@@ -252,7 +314,9 @@ export default function AddProfileModal({
                     className={errors.dobDay ? 'border-red-500' : ''}
                   />
                   {errors.dobDay && (
-                    <p className="text-xs text-red-500 mt-1">{errors.dobDay.message}</p>
+                    <p className="mt-1 text-xs text-red-500">
+                      {errors.dobDay.message}
+                    </p>
                   )}
                 </div>
                 <div>
@@ -263,7 +327,9 @@ export default function AddProfileModal({
                     className={errors.dobYear ? 'border-red-500' : ''}
                   />
                   {errors.dobYear && (
-                    <p className="text-xs text-red-500 mt-1">{errors.dobYear.message}</p>
+                    <p className="mt-1 text-xs text-red-500">
+                      {errors.dobYear.message}
+                    </p>
                   )}
                 </div>
               </div>
@@ -273,27 +339,30 @@ export default function AddProfileModal({
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="licenseNumber">License Number</Label>
-                <Input
-                  id="licenseNumber"
-                  {...register('licenseNumber')}
-                />
+                <Input id="licenseNumber" {...register('licenseNumber')} />
               </div>
               <div>
                 <Label htmlFor="nabpEprofileId">NABP e-Profile ID</Label>
-                <Input
-                  id="nabpEprofileId"
-                  {...register('nabpEprofileId')}
-                />
+                <Input id="nabpEprofileId" {...register('nabpEprofileId')} />
               </div>
             </div>
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Saving...' : profileId ? 'Update' : 'Create'} Profile
+              {isSubmitting
+                ? 'Saving...'
+                : profileId
+                ? 'Update'
+                : 'Create'}{' '}
+              Profile
             </Button>
           </DialogFooter>
         </form>

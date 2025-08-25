@@ -1,3 +1,5 @@
+// src/stores/profileStore.ts
+
 /**
  * Profile Store (Supabase version)
  * - Manages the current selected member profile for the authenticated account
@@ -15,8 +17,8 @@ interface ProfileState {
   loading: boolean;
   
   // Actions
-  setCurrentProfile: (profile: MemberProfile) => void;
-  loadProfiles: (accountId: string) => Promise<void>;
+  setCurrentProfile: (profile: MemberProfile | null) => void;
+  loadProfilesAndSetDefault: (accountId: string) => Promise<void>;
   clearProfile: () => void;
   refreshCurrentProfile: () => Promise<void>;
 }
@@ -53,7 +55,7 @@ function mapRowToProfile(row: any): MemberProfile {
   return {
     id: row.id,
     accountId: row.member_account_id,
-    roleType: row.role_type,
+    role: row.role,
     firstName: row.first_name,
     lastName: row.last_name,
     phoneNumber: row.phone_number,
@@ -66,6 +68,7 @@ function mapRowToProfile(row: any): MemberProfile {
     isActive: row.is_active,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    displayName: row.display_name,
   };
 }
 
@@ -74,12 +77,12 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
   profiles: [],
   loading: false,
 
-  setCurrentProfile: (profile: MemberProfile) => {
+  setCurrentProfile: (profile: MemberProfile | null) => {
     saveCurrentProfile(profile);
     set({ currentProfile: profile });
   },
 
-  loadProfiles: async (accountId: string) => {
+  loadProfilesAndSetDefault: async (accountId: string) => {
     try {
       set({ loading: true });
       
@@ -95,7 +98,11 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
       const profiles = (data || []).map(mapRowToProfile);
       set({ profiles });
 
-      return profiles;
+      const { currentProfile } = get();
+      if (!currentProfile && profiles.length > 0) {
+        get().setCurrentProfile(profiles[0]);
+      }
+
     } catch (error) {
       console.error('Failed to load profiles:', error);
       set({ profiles: [] });

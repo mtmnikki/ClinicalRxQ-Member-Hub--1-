@@ -47,9 +47,9 @@ function ProfileList({
           >
             <div className="min-w-0">
               <div className="truncate text-sm font-medium text-slate-900">
-                {p.firstName} {p.lastName}
+                {p.displayName}
               </div>
-              <div className="text-xs text-slate-500">{p.roleType}</div>
+              <div className="text-xs text-slate-500">{p.role}</div>
             </div>
             <div
               className={[
@@ -80,9 +80,13 @@ interface ProfileSelectionModalProps {
  * - Never blocks account access
  * - Gracefully handles errors
  */
-export default function ProfileSelectionModal({ open, onClose, forceShow = false }: ProfileSelectionModalProps) {
+export default function ProfileSelectionModal({
+  open,
+  onClose,
+  forceShow = false,
+}: ProfileSelectionModalProps) {
   const { account } = useAuthStore();
-  const { currentProfile, profiles, loadProfiles, setCurrentProfile } = useProfileStore();
+  const { currentProfile, profiles, loadProfilesAndSetDefault, setCurrentProfile } = useProfileStore();
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -109,7 +113,7 @@ export default function ProfileSelectionModal({ open, onClose, forceShow = false
     try {
       setLoading(true);
       setError(null);
-      await loadProfiles(account.id);
+      await loadProfilesAndSetDefault(account.id);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load profiles';
       setError(message);
@@ -121,10 +125,10 @@ export default function ProfileSelectionModal({ open, onClose, forceShow = false
 
   function handleConfirm() {
     if (pickedId) {
-      const profile = profiles.find(p => p.id === pickedId);
+      const profile = profiles.find((p) => p.id === pickedId);
       if (profile) {
         setCurrentProfile(profile);
-        toast.success(`Switched to ${profile.firstName} ${profile.lastName}`);
+        toast.success(`Switched to ${profile.displayName}`);
       }
     }
     onClose();
@@ -152,10 +156,9 @@ export default function ProfileSelectionModal({ open, onClose, forceShow = false
           <DialogHeader>
             <DialogTitle>Select Team Member Profile</DialogTitle>
             <DialogDescription>
-              {currentProfile 
-                ? "Switch to a different team member profile, or continue with current selection."
-                : "Choose which team member is using the system. This is optional - you can always select a profile later."
-              }
+              {currentProfile
+                ? 'Switch to a different team member profile, or continue with current selection.'
+                : 'Choose which team member is using the system. This is optional - you can always select a profile later.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -165,17 +168,20 @@ export default function ProfileSelectionModal({ open, onClose, forceShow = false
             </div>
           ) : error ? (
             <div className="py-4">
-              <div className="rounded-md bg-red-50 border border-red-200 p-3">
-                <div className="text-sm text-red-800">Error loading profiles:</div>
-                <div className="text-xs text-red-600 mt-1">{error}</div>
+              <div className="rounded-md border border-red-200 bg-red-50 p-3">
+                <div className="text-sm text-red-800">
+                  Error loading profiles:
+                </div>
+                <div className="mt-1 text-xs text-red-600">{error}</div>
               </div>
               <div className="mt-3 text-xs text-slate-500">
-                You can continue using the application without selecting a profile.
+                You can continue using the application without selecting a
+                profile.
               </div>
             </div>
           ) : profiles.length === 0 ? (
             <div className="py-6 text-center">
-              <div className="text-sm text-slate-600 mb-3">
+              <div className="mb-3 text-sm text-slate-600">
                 No team member profiles found.
               </div>
               <div className="text-xs text-slate-500">
@@ -183,7 +189,11 @@ export default function ProfileSelectionModal({ open, onClose, forceShow = false
               </div>
             </div>
           ) : (
-            <ProfileList profiles={profiles} selectedId={pickedId} onSelect={setPickedId} />
+            <ProfileList
+              profiles={profiles}
+              selectedId={pickedId}
+              onSelect={setPickedId}
+            />
           )}
 
           <div className="mt-4 flex items-center justify-between gap-2">
@@ -222,10 +232,10 @@ export default function ProfileSelectionModal({ open, onClose, forceShow = false
 export function useProfileSelection() {
   const { currentProfile, profiles } = useProfileStore();
   const [showModal, setShowModal] = useState(false);
-  
+
   // Auto-show modal on dashboard if no profile selected and profiles exist
   const shouldShowModal = !currentProfile && profiles.length > 0;
-  
+
   useEffect(() => {
     if (shouldShowModal) {
       // Small delay to let dashboard render first
@@ -233,7 +243,7 @@ export function useProfileSelection() {
       return () => clearTimeout(timer);
     }
   }, [shouldShowModal]);
-  
+
   return {
     showModal,
     setShowModal,

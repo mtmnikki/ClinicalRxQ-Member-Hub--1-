@@ -11,10 +11,10 @@ import { Button } from '../ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Card, CardContent } from '../ui/card';
 import { useAuthStore } from '@/stores/authStore';
-import { supabase } from '@/services/supabase';
 import type { MemberProfile } from '@/types';
-import AddProfileModal from './AddProfileModalSupabase';
+import AddProfileModalSupabase from './AddProfileModalSupabase';
 import { UserCircle } from 'lucide-react';
+import { useProfileStore } from '@/stores/profileStore';
 
 interface ProfileSelectionModalProps {
   open: boolean;
@@ -22,8 +22,8 @@ interface ProfileSelectionModalProps {
 }
 
 export default function ProfileSelectionModal({ open, onProfileSelected }: ProfileSelectionModalProps) {
-  const { account } = useAuthStore();
-  const [profiles, setProfiles] = useState<MemberProfile[]>([]);
+  const account = useAuthStore((state) => state.account);
+  const { profiles, loadProfilesAndSetDefault } = useProfileStore();
   const [selectedProfileId, setSelectedProfileId] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [showAddProfile, setShowAddProfile] = useState(false);
@@ -35,34 +35,7 @@ export default function ProfileSelectionModal({ open, onProfileSelected }: Profi
     const fetchProfiles = async () => {
       try {
         setLoading(true);
-        const { data, error } = await supabase
-          .from('member_profiles')
-          .select('*')
-          .eq('member_account_id', account.id)
-          .eq('is_active', true)
-          .order('created_at', { ascending: true });
-
-        if (error) throw error;
-
-        const mappedProfiles: MemberProfile[] = (data || []).map(row => ({
-          id: row.id,
-          accountId: row.member_account_id,
-          roleType: row.role_type,
-          firstName: row.first_name,
-          lastName: row.last_name,
-          phoneNumber: row.phone_number,
-          profileEmail: row.profile_email,
-          dobMonth: row.dob_month,
-          dobDay: row.dob_day,
-          dobYear: row.dob_year,
-          licenseNumber: row.license_number,
-          nabpEprofileId: row.nabp_eprofile_id,
-          isActive: row.is_active,
-          createdAt: row.created_at,
-          updatedAt: row.updated_at,
-        }));
-
-        setProfiles(mappedProfiles);
+        await loadProfilesAndSetDefault(account.id);
       } catch (error) {
         console.error('Failed to fetch profiles:', error);
       } finally {
@@ -71,7 +44,7 @@ export default function ProfileSelectionModal({ open, onProfileSelected }: Profi
     };
 
     fetchProfiles();
-  }, [account?.id, open]);
+  }, [account?.id, open, loadProfilesAndSetDefault]);
 
   const handleSelectProfile = () => {
     const profile = profiles.find(p => p.id === selectedProfileId);
@@ -83,34 +56,9 @@ export default function ProfileSelectionModal({ open, onProfileSelected }: Profi
   const handleProfileCreated = async () => {
     // Refresh profiles after creation
     if (account?.id) {
-      const { data } = await supabase
-        .from('member_profiles')
-        .select('*')
-        .eq('member_account_id', account.id)
-        .eq('is_active', true)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-
-      if (data) {
-        const newProfile: MemberProfile = {
-          id: data.id,
-          accountId: data.member_account_id,
-          roleType: data.role_type,
-          firstName: data.first_name,
-          lastName: data.last_name,
-          phoneNumber: data.phone_number,
-          profileEmail: data.profile_email,
-          dobMonth: data.dob_month,
-          dobDay: data.dob_day,
-          dobYear: data.dob_year,
-          licenseNumber: data.license_number,
-          nabpEprofileId: data.nabp_eprofile_id,
-          isActive: data.is_active,
-          createdAt: data.created_at,
-          updatedAt: data.updated_at,
-        };
-        
+      await loadProfilesAndSetDefault(account.id);
+      const newProfile = useProfileStore.getState().profiles.slice(-1)[0];
+      if (newProfile) {
         setShowAddProfile(false);
         onProfileSelected(newProfile);
       }
@@ -119,10 +67,10 @@ export default function ProfileSelectionModal({ open, onProfileSelected }: Profi
 
   if (showAddProfile) {
     return (
-      <AddProfileModal
+      <AddProfileModalSupabase
         open={showAddProfile}
-        onClose={() => setShowAddProfile(false)}
-        onSuccess={handleProfileCreated}
+        onOpenChange={setShowAddProfile}
+        onProfileCreated={handleProfileCreated}
       />
     );
   }
@@ -150,12 +98,12 @@ export default function ProfileSelectionModal({ open, onProfileSelected }: Profi
           <CardContent className="pt-6">
             {loading ? (
               <div className="flex justify-center py-4">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-blue-600"></div>
               </div>
             ) : profiles.length > 0 ? (
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium mb-2 block">Select Profile</label>
+                  <label className="mb-2 block text-sm font-medium">Select Profile</label>
                   <Select value={selectedProfileId} onValueChange={setSelectedProfileId}>
                     <SelectTrigger>
                       <SelectValue placeholder="Choose a profile..." />
@@ -163,7 +111,7 @@ export default function ProfileSelectionModal({ open, onProfileSelected }: Profi
                     <SelectContent>
                       {profiles.map((profile) => (
                         <SelectItem key={profile.id} value={profile.id}>
-                          {profile.firstName} {profile.lastName} - {profile.roleType}
+                          {profile.displayName} - {profile.role}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -187,8 +135,8 @@ export default function ProfileSelectionModal({ open, onProfileSelected }: Profi
                 </div>
               </div>
             ) : (
-              <div className="text-center py-4">
-                <p className="text-sm text-muted-foreground mb-4">
+              <div className="py-4 text-center">
+                <p className="mb-4 text-sm text-muted-foreground">
                   No profiles found for your account.
                 </p>
                 <Button onClick={() => setShowAddProfile(true)} className="w-full">

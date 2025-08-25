@@ -8,6 +8,7 @@ import { create } from 'zustand';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/services/supabase';
 import type { Account } from '@/types';
+import { useProfileStore } from './profileStore';
 
 // --- State and Actions Interface ---
 interface AuthState {
@@ -33,7 +34,9 @@ function mapRowToAccount(row: any): Account {
     email: row.email,
     pharmacyName: row.pharmacy_name,
     pharmacyPhone: row.pharmacy_phone ?? null,
-    subscriptionStatus: (row.subscription_status || 'inactive') as 'active' | 'inactive',
+    subscriptionStatus: (row.subscription_status || 'inactive') as
+      | 'active'
+      | 'inactive',
     createdAt: row.created_at,
     updatedAt: row.updated_at ?? null,
     address1: row.address1 ?? null,
@@ -45,6 +48,7 @@ function mapRowToAccount(row: any): Account {
 
 // --- Zustand Store Definition ---
 export const useAuthStore = create<AuthState>((set) => {
+  // Set up the listener outside the return object
   supabase.auth.onAuthStateChange(async (event, session) => {
     if (session) {
       const { data: accountRow } = await supabase
@@ -52,14 +56,28 @@ export const useAuthStore = create<AuthState>((set) => {
         .select('*')
         .eq('id', session.user.id)
         .single();
-
-      set({
-        session,
-        user: session.user,
-        account: accountRow ? mapRowToAccount(accountRow) : null,
-        isAuthenticated: !!accountRow,
-        isInitialized: true,
-      });
+      
+      if (accountRow) {
+        set({
+          session,
+          user: session.user,
+          account: mapRowToAccount(accountRow),
+          isAuthenticated: true,
+          isInitialized: true,
+        });
+        await useProfileStore.getState().loadProfilesAndSetDefault(session.user.id);
+      } else {
+        // If no account row is found, treat as logged out
+        await supabase.auth.signOut(); // Clean up Supabase session
+        set({
+          session: null,
+          user: null,
+          account: null,
+          isAuthenticated: false,
+          isInitialized: true,
+        });
+        useProfileStore.getState().clearProfile();
+      }
     } else {
       set({
         session: null,
@@ -68,8 +86,10 @@ export const useAuthStore = create<AuthState>((set) => {
         isAuthenticated: false,
         isInitialized: true,
       });
+      useProfileStore.getState().clearProfile();
     }
   });
+
   return {
     // --- Initial State ---
     session: null,
@@ -81,39 +101,20 @@ export const useAuthStore = create<AuthState>((set) => {
     // --- Actions ---
 
     /**
-     * Checks for an active session on app startup and hydrates the store.
+     * Checks for an active session on app startup.
+     * The onAuthStateChange listener will handle the state update.
      */
     checkSession: async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (session) {
-        const { data: accountRow, error } = await supabase
-          .from('accounts')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
-
-        if (error || !accountRow) {
-          await supabase.auth.signOut();
-        } else {
-          set({
-            session,
-            user: session.user,
-            account: accountRow ? mapRowToAccount(accountRow) : null,
-            isAuthenticated: true,
-            isInitialized: true,
-          });
-        }
-      } else {
-        set({ isInitialized: true });
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        set({ isInitialized: true }); // Ensure initialization is marked complete if no session
       }
     },
 
     /**
      * Signs in an account with email and password.
      */
-    login: async (email, password) => {
+    login: async (email: string, password: string) => {
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -131,10 +132,8 @@ export const useAuthStore = create<AuthState>((set) => {
     /**
      * Updates the current account information.
      */
-    updateAccount: async (updates) => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+    updateAccount: async (updates: Partial<Account>) => {
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         throw new Error('No authenticated user');
       }

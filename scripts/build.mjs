@@ -47,8 +47,12 @@ const esbuildOpts = {
   // Injects environment variables into the client-side code at build time.
   // This replaces `process.env.VARIABLE_NAME` with the actual string value.
   define: {
-    'process.env.VITE_SUPABASE_URL': JSON.stringify(process.env.VITE_SUPABASE_URL),
-    'process.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(process.env.VITE_SUPABASE_ANON_KEY),
+    'process.env.VITE_SUPABASE_URL': JSON.stringify(
+      process.env.VITE_SUPABASE_URL || ''
+    ),
+    'process.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(
+      process.env.VITE_SUPABASE_ANON_KEY || ''
+    ),
   },
 };
 

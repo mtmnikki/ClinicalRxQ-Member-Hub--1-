@@ -1,3 +1,5 @@
+// src/types/index.ts
+
 /**
  * Type definitions for ClinicalRxQ application
  * - Authenticated entity is an Account (public.accounts)
@@ -28,31 +30,37 @@ export interface Account {
 
 /**
  * Role that a pharmacy profile can assume.
- * - Mirrors member_profiles.role_type with camelCase mapping
+ * - Mirrors member_profiles.role enum
  */
-export type RoleType = 'Pharmacist-PIC' | 'Pharmacist-Staff' | 'Pharmacy Technician';
+export type RoleType =
+  | 'Pharmacist'
+  | 'Pharmacist-PIC'
+  | 'Pharmacy Technician'
+  | 'Intern'
+  | 'Pharmacy'
+  | null;
 
 /**
  * Member profile associated with an account (member_profiles table)
- * - Only required: roleType, firstName, lastName
  */
 export interface MemberProfile {
   id: string;
   /** FK to accounts.id (member_profiles.member_account_id) */
   accountId: string;
-  roleType: RoleType;
+  role: RoleType;
   firstName: string;
-  lastName: string;
+  lastName: string | null;
   phoneNumber?: string;
   profileEmail?: string;
-  dobMonth?: string; // MM
-  dobDay?: string; // DD
-  dobYear?: string; // YYYY
+  dobMonth?: number;
+  dobDay?: number;
+  dobYear?: number;
   licenseNumber?: string;
   nabpEprofileId?: string;
   isActive?: boolean;
   createdAt: string; // ISO
   updatedAt?: string; // ISO
+  displayName: string;
 }
 
 /**

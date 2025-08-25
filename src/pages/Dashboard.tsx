@@ -8,7 +8,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import AppShell from '../components/layout/AppShell';
 import { useAuth } from '../components/auth/AuthContext';
-// Legacy API imports removed - to be replaced with Supabase queries
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -69,7 +68,7 @@ const StatChip: React.FC<{ label: string }> = ({ label }) => (
  */
 export default function Dashboard() {
   const { account } = useAuth();
-  const { currentProfile, loadProfiles } = useProfileStore();
+  const { currentProfile } = useProfileStore();
   const { showModal, setShowModal } = useProfileSelection();
   
   // Dashboard data state
@@ -82,7 +81,15 @@ export default function Dashboard() {
 
   // Load dashboard data when profile is selected
   useEffect(() => {
-    if (!currentProfile?.id) return;
+    const profileId = currentProfile?.id;
+    if (!profileId) {
+      // Clear data if no profile is selected, but still load global data
+      setActivity([]);
+      setBookmarks([]);
+      getAnnouncements().then(setAnnouncements).catch(console.error);
+      getDashboardPrograms().then(setPrograms).catch(console.error);
+      return;
+    }
 
     const loadDashboardData = async () => {
       try {
@@ -91,9 +98,9 @@ export default function Dashboard() {
         
         const [programsData, activityData, announcementsData, bookmarksData] = await Promise.all([
           getDashboardPrograms(),
-          getRecentActivity(currentProfile.id),
+          getRecentActivity(profileId),
           getAnnouncements(),
-          getBookmarkedResources(currentProfile.id),
+          getBookmarkedResources(profileId),
         ]);
         
         setPrograms(programsData);
@@ -111,11 +118,6 @@ export default function Dashboard() {
     loadDashboardData();
   }, [currentProfile?.id]);
 
-  const handleProfileSelected = (profile: MemberProfile) => {
-    setCurrentProfile(profile);
-    setShowProfileSelection(false);
-  };
-
   /** Compute subscription chip color from account.subscriptionStatus */
   const subColor = useMemo(() => {
     switch (account?.subscriptionStatus) {
@@ -127,7 +129,9 @@ export default function Dashboard() {
     }
   }, [account?.subscriptionStatus]);
 
-  // Remove blocking behavior - dashboard loads regardless of profile selection
+  const welcomeName = currentProfile
+    ? currentProfile.displayName
+    : account?.pharmacyName ?? 'Member';
 
   // Show error state
   if (error) {
@@ -149,13 +153,15 @@ export default function Dashboard() {
         <div className="mx-auto flex max-w-[1440px] items-center justify-between px-3 py-3 text-[13px]">
           <div>
             <div className="text-lg font-semibold">
-              Welcome back, {currentProfile.firstName} {currentProfile.lastName}
+              Welcome back, {welcomeName}
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-2 text-[12px] text-slate-600">
-              <span className="rounded-full bg-blue-100 text-blue-700 px-2 py-0.5 text-[11px]">
-                {currentProfile.roleType}
-              </span>
-              <span className="text-slate-500">at</span>
+              {currentProfile && (
+                 <span className="rounded-full bg-blue-100 text-blue-700 px-2 py-0.5 text-[11px]">
+                  {currentProfile.role}
+                </span>
+              )}
+              {currentProfile && <span className="text-slate-500">at</span>}
               <span className="font-medium">{account?.pharmacyName ?? 'Pharmacy'}</span>
               <span className={`rounded-full px-2 py-0.5 text-[11px] ${subColor}`}>
                 {(account?.subscriptionStatus ?? 'inactive').replace(/^\w/, (c) => c.toUpperCase())}
@@ -179,33 +185,37 @@ export default function Dashboard() {
               <CardTitle className="text-sm">Recently Accessed</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="divide-y">
-                {activity.map((a) => (
-                  <div key={a.id} className="flex items-center justify-between py-2">
-                    <div>
-                      <div className="text-[13px] font-medium">{a.name}</div>
-                      <div className="text-[12px] text-slate-500">
-                        {a.program?.toUpperCase()} • {new Date(a.accessedAtISO).toLocaleString()}
+              {!currentProfile ? (
+                 <div className="p-4 text-center text-sm text-slate-500">Please select a profile to see recent activity.</div>
+              ) : (
+                <div className="divide-y">
+                  {activity.map((a) => (
+                    <div key={a.id} className="flex items-center justify-between py-2">
+                      <div>
+                        <div className="text-[13px] font-medium">{a.resourceName}</div>
+                        <div className="text-[12px] text-slate-500">
+                          {new Date(a.accessedAt).toLocaleString()}
+                        </div>
                       </div>
+                      {a.resourceUrl ? (
+                        <a href={a.resourceUrl} target="_blank" rel="noreferrer">
+                          <Button size="sm" variant="outline" className="bg-transparent h-8 px-3">
+                            <Download className="mr-2 h-3.5 w-3.5" />
+                            Re-download
+                          </Button>
+                        </a>
+                      ) : (
+                        <Link to="/resources">
+                          <Button size="sm" variant="outline" className="bg-transparent h-8 px-3">
+                            <Download className="mr-2 h-3.5 w-3.5" />
+                            View in Library
+                          </Button>
+                        </Link>
+                      )}
                     </div>
-                    {a.url ? (
-                      <a href={a.url} target="_blank" rel="noreferrer">
-                        <Button size="sm" variant="outline" className="bg-transparent h-8 px-3">
-                          <Download className="mr-2 h-3.5 w-3.5" />
-                          Re-download
-                        </Button>
-                      </a>
-                    ) : (
-                      <Link to="/resources">
-                        <Button size="sm" variant="outline" className="bg-transparent h-8 px-3">
-                          <Download className="mr-2 h-3.5 w-3.5" />
-                          View in Library
-                        </Button>
-                      </Link>
-                    )}
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -281,7 +291,9 @@ export default function Dashboard() {
             View All
           </Link>
         </div>
-        {bookmarks.length === 0 ? (
+        {!currentProfile ? (
+          <div className="rounded-md border border-dashed p-4 text-[13px] text-slate-600">Please select a profile to see your bookmarks.</div>
+        ) : bookmarks.length === 0 ? (
           <div className="rounded-md border border-dashed p-4 text-[13px] text-slate-600">
             No bookmarks yet. Explore the Resource Library and add bookmarks for quick access.
           </div>
@@ -289,9 +301,7 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
             {bookmarks.map((b) => {
               const isVideo =
-                (b as any)?.mediaType === 'video' ||
-                typeof (b as any)?.duration === 'string' ||
-                String((b as any)?.type || '').toLowerCase() === 'video' ||
+                (b.mimeType && b.mimeType.startsWith('video/')) ||
                 (b.url || '').toLowerCase().match(/\.(mp4|mov|m4v|webm)$/) != null;
               const duration = (b as any)?.duration as string | undefined;
 
@@ -304,7 +314,7 @@ export default function Dashboard() {
                       ) : (
                         <FileText className="h-4 w-4 text-slate-600" />
                       )}
-                      <CardTitle className="text-[13px]">{b.name}</CardTitle>
+                      <CardTitle className="text-[13px]">{b.title}</CardTitle>
                     </div>
                     {isVideo && duration ? (
                       <div className="text-[11px] text-slate-500">{duration}</div>
