@@ -2,10 +2,10 @@
  * Main application component with routing and session management.
  * - Connects to Zustand authStore to check for an active session on startup.
  * - Uses the centralized ProtectedRoute component to guard member-only pages.
- * - Removes the legacy AuthContext provider.
+ * - Shows a loading indicator until the initial session check is complete.
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { HashRouter, Route, Routes } from 'react-router-dom';
 import Home from './pages/Home';
 import Contact from './pages/Contact';
@@ -30,26 +30,17 @@ import { AuthProvider } from './components/auth/AuthContext';
  * App root component
  */
 export default function App() {
-  const { checkSession } = useAuthStore();
-  const [isLoading, setIsLoading] = useState(true);
+  const { checkSession, isInitialized } = useAuthStore();
 
   // On initial application load, check for an existing session.
   useEffect(() => {
-    const initializeSession = async () => {
-      try {
-        await checkSession();
-      } catch (error) {
-        console.error('Session check failed:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    initializeSession();
+    checkSession();
   }, [checkSession]);
 
   // Display a loading indicator while the session is being verified.
-  // This prevents a "flash" of the login page for already authenticated accounts.
-  if (isLoading) {
+  // This prevents a "flash" of the login page for already authenticated accounts
+  // and fixes the infinite spinner issue.
+  if (!isInitialized) {
     return (
       <div className="flex h-screen items-center justify-center bg-white">
         <div className="h-12 w-12 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
@@ -63,65 +54,70 @@ export default function App() {
       <ErrorBoundary>
         <AuthProvider>
           <Routes>
-          {/* Public Routes */}
-          <Route path="/" element={<Home />} />
-          <Route path="/contact" element={<Contact />} />
-          <Route path="/login" element={<Login />} />
+            {/* Public Routes */}
+            <Route path="/" element={<Home />} />
+            <Route path="/contact" element={<Contact />} />
+            <Route path="/login" element={<Login />} />
 
-          {/* Protected Routes */}
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/member-content"
-            element={
-              <ProtectedRoute>
-                <MemberContent />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/resources"
-            element={
-              <ProtectedRoute>
-                <Resources />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/program/:programSlug"
-            element={
-              <ProtectedRoute>
-                <ProgramDetail />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/account"
-            element={
-              <ProtectedRoute>
-                <Account />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/bookmarks"
-            element={
-              <ProtectedRoute>
-                <Bookmarks />
-              </ProtectedRoute>
-            }
-          />
-        </Routes>
+            {/* Protected Routes */}
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/member-content"
+              element={
+                <ProtectedRoute>
+                  <MemberContent />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/resources"
+              element={
+                <ProtectedRoute>
+                  <Resources />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/program/:programSlug"
+              element={
+                <ProtectedRoute>
+                  <ProgramDetail />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/account"
+              element={
+                <ProtectedRoute>
+                  <Account />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/bookmarks"
+              element={
+                <ProtectedRoute>
+                  <Bookmarks />
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
         </AuthProvider>
       </ErrorBoundary>
       {/* Global toaster for compact notifications across the app */}
-      <Toaster position="top-center" richColors={false} closeButton={false} duration={1800} />
+      <Toaster
+        position="top-center"
+        richColors={false}
+        closeButton={false}
+        duration={1800}
+      />
       {/* Global back-to-top button */}
       <BackToTop />
       {/* Global profile bookmarks panel */}

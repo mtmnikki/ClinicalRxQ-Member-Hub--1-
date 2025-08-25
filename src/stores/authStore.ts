@@ -13,12 +13,10 @@ import { useProfileStore } from './profileStore';
 // --- State and Actions Interface ---
 interface AuthState {
   session: Session | null;
-  user: User | null; // Supabase refers to the auth entity as 'user'
-  account: Account | null; // Your application's term for the authenticated entity
+  user: User | null;
+  account: Account | null;
   isAuthenticated: boolean;
   isInitialized: boolean; // To track if the initial session check is complete
-
-  // Actions
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   checkSession: () => Promise<void>;
@@ -48,9 +46,8 @@ function mapRowToAccount(row: any): Account {
 
 // --- Zustand Store Definition ---
 export const useAuthStore = create<AuthState>((set) => {
-  // Set up the listener outside the return object
   supabase.auth.onAuthStateChange(async (event, session) => {
-    if (session?.user?.id) {
+    if (session) {
       const { data: accountRow } = await supabase
         .from('accounts')
         .select('*')
@@ -67,16 +64,7 @@ export const useAuthStore = create<AuthState>((set) => {
         });
         await useProfileStore.getState().loadProfilesAndSetDefault(session.user.id);
       } else {
-        // If no account row is found, treat as logged out
-        await supabase.auth.signOut(); // Clean up Supabase session
-        set({
-          session: null,
-          user: null,
-          account: null,
-          isAuthenticated: false,
-          isInitialized: true,
-        });
-        useProfileStore.getState().clearProfile();
+        await supabase.auth.signOut();
       }
     } else {
       set({
@@ -91,48 +79,29 @@ export const useAuthStore = create<AuthState>((set) => {
   });
 
   return {
-    // --- Initial State ---
     session: null,
     user: null,
     account: null,
     isAuthenticated: false,
     isInitialized: false,
 
-    // --- Actions ---
-
-    /**
-     * Checks for an active session on app startup.
-     * The onAuthStateChange listener will handle the state update.
-     */
     checkSession: async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        set({ isInitialized: true }); // Ensure initialization is marked complete if no session
+        set({ isInitialized: true });
       }
     },
 
-    /**
-     * Signs in an account with email and password.
-     */
-    login: async (email: string, password: string) => {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+    login: async (email, password) => {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
     },
 
-    /**
-     * Signs out the current account and clears the state.
-     */
     logout: async () => {
       await supabase.auth.signOut();
     },
 
-    /**
-     * Updates the current account information.
-     */
-    updateAccount: async (updates: Partial<Account>) => {
+    updateAccount: async (updates) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         throw new Error('No authenticated user');
