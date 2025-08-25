@@ -1,69 +1,65 @@
-import * as esbuild from 'esbuild';
-import { rimraf } from 'rimraf';
-import stylePlugin from 'esbuild-style-plugin';
-import autoprefixer from 'autoprefixer';
-import tailwindcss from 'tailwindcss';
+import * as esbuild from 'esbuild'
+import { rimraf } from 'rimraf'
+import stylePlugin from 'esbuild-style-plugin'
+import autoprefixer from 'autoprefixer'
+import tailwindcss from 'tailwindcss'
+import path from 'node:path'
 
-// Load environment variables from a .env file into process.env
-import 'dotenv/config';
+// Load .env into process.env for dev/build
+import 'dotenv/config'
 
-const args = process.argv.slice(2);
-const isProd = args[0] === '--production';
+const args = process.argv.slice(2)
+const isProd = args.includes('--production')
 
-await rimraf('dist');
+await rimraf('dist')
 
-/**
- * @type {esbuild.BuildOptions}
- */
+/** @type {esbuild.BuildOptions} */
 const esbuildOpts = {
-  color: true,
-  entryPoints: ['src/main.tsx', 'index.html'],
+  entryPoints: ['src/main.tsx'],
   outdir: 'dist',
-  entryNames: '[name]',
-  write: true,
   bundle: true,
-  format: 'iife',
-  sourcemap: isProd ? false : 'linked',
+  splitting: true,
+  sourcemap: !isProd,
   minify: isProd,
-  treeShaking: true,
+  target: ['es2019', 'chrome100', 'edge100', 'firefox100', 'safari15'],
+  format: 'esm',
   jsx: 'automatic',
+  metafile: true,
+  logLevel: 'info',
   loader: {
-    '.html': 'copy',
     '.png': 'file',
-    '.svg': 'file',
-    '.jpeg': 'file',
     '.jpg': 'file',
+    '.svg': 'file',
+    '.woff': 'file',
+    '.woff2': 'file',
   },
-  alias: {
-    '@': './src',
+  define: {
+    'process.env.NODE_ENV': JSON.stringify(isProd ? 'production' : 'development'),
+    'process.env.VITE_SUPABASE_URL': JSON.stringify(process.env.VITE_SUPABASE_URL || ''),
+    'process.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(process.env.VITE_SUPABASE_ANON_KEY || ''),
   },
   plugins: [
     stylePlugin({
+      // This picks up your Tailwind in src/shadcn.css
       postcss: {
         plugins: [tailwindcss, autoprefixer],
       },
     }),
   ],
-  // Injects environment variables into the client-side code at build time.
-  // This replaces `process.env.VARIABLE_NAME` with the actual string value.
-  define: {
-    'process.env.VITE_SUPABASE_URL': JSON.stringify(
-      process.env.VITE_SUPABASE_URL || ''
-    ),
-    'process.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(
-      process.env.VITE_SUPABASE_ANON_KEY || ''
-    ),
-  },
-};
-
-if (isProd) {
-  await esbuild.build(esbuildOpts);
-} else {
-  const ctx = await esbuild.context(esbuildOpts);
-  await ctx.watch();
-  const { hosts, port } = await ctx.serve();
-  console.log(`Running on:`);
-  hosts.forEach((host) => {
-    console.log(`http://${host}:${port}`);
-  });
+  // Simple alias: @/* -> src/*
+  alias: { '@': path.resolve(process.cwd(), 'src') },
+  // Keep index.html simple; we’ll serve dist/
 }
+
+// Build or dev-serve
+if (isProd) {
+  await esbuild.build(esbuildOpts)
+  process.exit(0)
+}
+
+const ctx = await esbuild.context(esbuildOpts)
+await ctx.watch()
+const { port, host } = await ctx.serve({
+  servedir: 'dist',
+})
+console.log(`Dev server: http://${host || 'localhost'}:${port}`)
