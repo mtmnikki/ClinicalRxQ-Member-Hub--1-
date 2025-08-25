@@ -5,7 +5,7 @@
  * - Optional fields validated lightly if provided
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -32,21 +32,23 @@ import {
 } from '../ui/select';
 import { toast } from 'sonner';
 
-/** Roles dropdown */
-const ROLE_OPTIONS: Exclude<RoleType, null>[] = [
+/** Roles dropdown - excluding null and Pharmacy */
+const ROLE_OPTIONS: Exclude<RoleType, null | 'Pharmacy'>[] = [
   'Pharmacist-PIC',
   'Pharmacist',
   'Pharmacy Technician',
   'Intern',
-  'Pharmacy',
 ];
 
 /** Zod schema */
 const schema = z.object({
   role: z.enum(
-    ['Pharmacist-PIC', 'Pharmacist', 'Pharmacy Technician', 'Intern', 'Pharmacy']
-  ).optional(),
-  firstName: z.string().optional(),
+    ['Pharmacist-PIC', 'Pharmacist', 'Pharmacy Technician', 'Intern', 'Pharmacy'],
+    {
+      required_error: 'Role is required',
+    }
+  ),
+  firstName: z.string().min(1, 'First Name is required'),
   lastName: z.string().optional(),
   phoneNumber: z
     .string()
@@ -88,28 +90,27 @@ interface AddProfileModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onProfileCreated?: () => void;
-  profileId?: string;
-  defaultValues?: Partial<FormValues>;
+  profileToEdit?: Partial<FormValues> & { id: string };
 }
 
 export default function AddProfileModal({
   open,
   onOpenChange,
   onProfileCreated,
-  profileId,
-  defaultValues,
+  profileToEdit,
 }: AddProfileModalProps) {
-  const { account } = useAuthStore();
+  const account = useAuthStore((state) => state.account);
 
   const {
     register,
     handleSubmit,
     setValue,
     watch,
+    reset,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: defaultValues || {
+    defaultValues: profileToEdit || {
       role: undefined,
       firstName: '',
       lastName: '',
@@ -123,15 +124,28 @@ export default function AddProfileModal({
     },
   });
 
+  useEffect(() => {
+    if (profileToEdit) {
+      reset(profileToEdit);
+    } else {
+      reset({
+        role: undefined,
+        firstName: '',
+        lastName: '',
+        phoneNumber: '',
+        profileEmail: '',
+        dobMonth: '',
+        dobDay: '',
+        dobYear: '',
+        licenseNumber: '',
+        nabpEprofileId: '',
+      });
+    }
+  }, [profileToEdit, reset]);
+
   const onSubmit = async (data: FormValues) => {
     if (!account?.id) {
       toast.error('No authenticated account found');
-      return;
-    }
-
-    // Ensure at least one field is provided
-    if (!data.role && !data.firstName && !data.lastName) {
-      toast.error('Please provide at least a role, first name, or last name');
       return;
     }
 
@@ -149,21 +163,18 @@ export default function AddProfileModal({
         license_number: data.licenseNumber || null,
         nabp_eprofile_id: data.nabpEprofileId || null,
         is_active: true,
-        // display_name is handled by the database trigger
       };
 
-      if (profileId) {
-        // Update existing profile
+      if (profileToEdit) {
         const { error } = await supabase
           .from('member_profiles')
           .update(profileData)
-          .eq('id', profileId)
+          .eq('id', profileToEdit.id)
           .eq('member_account_id', account.id);
 
         if (error) throw error;
         toast.success('Profile updated successfully');
       } else {
-        // Create new profile
         const { error } = await supabase
           .from('member_profiles')
           .insert(profileData);
@@ -183,6 +194,7 @@ export default function AddProfileModal({
   };
 
   const watchedRole = watch('role');
+  const isEditing = !!profileToEdit;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -190,22 +202,22 @@ export default function AddProfileModal({
         <form onSubmit={handleSubmit(onSubmit)}>
           <DialogHeader>
             <DialogTitle>
-              {profileId ? 'Edit' : 'Add'} Team Member Profile
+              {isEditing ? 'Edit' : 'Add'} Team Member Profile
             </DialogTitle>
             <DialogDescription>
-              {profileId
+              {isEditing
                 ? 'Update the team member information below.'
                 : 'Create a new profile for a team member.'}
             </DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
-            {/* Role */}
             <div>
               <Label htmlFor="role">Role *</Label>
               <Select
                 value={watchedRole}
                 onValueChange={(value) => setValue('role', value as Exclude<RoleType, null>)}
+                disabled={isEditing && watchedRole === 'Pharmacy'}
               >
                 <SelectTrigger
                   id="role"
@@ -228,7 +240,6 @@ export default function AddProfileModal({
               )}
             </div>
 
-            {/* Name fields */}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="firstName">First Name *</Label>
@@ -258,7 +269,6 @@ export default function AddProfileModal({
               </div>
             </div>
 
-            {/* Contact fields */}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="phoneNumber">Phone Number</Label>
@@ -292,7 +302,6 @@ export default function AddProfileModal({
               </div>
             </div>
 
-            {/* Date of Birth */}
             <div>
               <Label>Date of Birth</Label>
               <div className="grid grid-cols-3 gap-2">
@@ -338,7 +347,6 @@ export default function AddProfileModal({
               </div>
             </div>
 
-            {/* License fields */}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="licenseNumber">License Number</Label>
@@ -360,11 +368,7 @@ export default function AddProfileModal({
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting
-                ? 'Saving...'
-                : profileId
-                ? 'Update'
-                : 'Create'}{' '}
+              {isSubmitting ? 'Saving...' : isEditing ? 'Update' : 'Create'}{' '}
               Profile
             </Button>
           </DialogFooter>
