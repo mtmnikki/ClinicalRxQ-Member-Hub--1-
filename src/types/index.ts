@@ -23,7 +23,7 @@ export interface Account {
   address1?: string | null;
   city?: string | null;
   state?: string | null;
-  zipcode?: string | null;
+  zipcode?: number | null;
 }
 
 /**

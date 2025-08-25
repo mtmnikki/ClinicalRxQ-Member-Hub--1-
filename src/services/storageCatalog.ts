@@ -71,6 +71,11 @@ interface StorageCatalogRow {
   last_modified?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
+  category?: string | null;
+  program_name?: string | null;
+  subcategory?: string | null;
+  program_id?: string | null;
+  content_class?: string | null;
 }
 
 /**

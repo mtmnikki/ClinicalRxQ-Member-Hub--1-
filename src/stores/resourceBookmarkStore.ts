@@ -39,8 +39,8 @@ export const useResourceBookmarkStore = create<ResourceBookmarkState>((set, get)
         await supabase
           .from('bookmarks')
           .delete()
-          .eq('member_profile_id', profileId)
-          .eq('resource_path', resource.path);
+          .eq('profile_id', profileId)
+          .eq('resource_id', resource.path);
 
         const newPaths = new Set(bookmarkedPaths);
         newPaths.delete(resource.path);
@@ -50,12 +50,9 @@ export const useResourceBookmarkStore = create<ResourceBookmarkState>((set, get)
         await supabase
           .from('bookmarks')
           .insert({
-            member_profile_id: profileId,
-            resource_path: resource.path,
-            resource_name: resource.title || resource.filename,
-            resource_url: resource.url,
-            mime_type: resource.mimeType || null,
-            file_size: resource.size || null,
+            profile_id: profileId,
+            resource_type: 'file',
+            resource_id: resource.path,
           });
 
         const newPaths = new Set(bookmarkedPaths);
@@ -74,12 +71,12 @@ export const useResourceBookmarkStore = create<ResourceBookmarkState>((set, get)
       
       const { data, error } = await supabase
         .from('bookmarks')
-        .select('resource_path')
-        .eq('member_profile_id', profileId);
+        .select('resource_id')
+        .eq('profile_id', profileId);
 
       if (error) throw error;
 
-      const paths = new Set((data || []).map(row => row.resource_path));
+      const paths = new Set((data || []).map(row => row.resource_id));
       set({ bookmarkedPaths: paths });
     } catch (error) {
       console.error('Failed to load bookmarks:', error);

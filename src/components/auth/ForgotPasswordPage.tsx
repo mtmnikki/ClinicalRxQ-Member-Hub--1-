@@ -49,9 +49,9 @@ const ForgotPasswordPage: React.FC = () => {
 
       setIsSubmitted(true); // Show the success message UI
       toast.success('Password reset link sent! Please check your email.');
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('Password reset error:', e);
-      toast.error(e.message || 'Failed to send reset link. Please try again.');
+      toast.error((e as Error).message || 'Failed to send reset link. Please try again.');
     }
   };
 

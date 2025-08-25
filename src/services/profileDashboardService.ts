@@ -12,14 +12,12 @@ import type { StorageFileItem } from './supabaseStorage';
 export interface RecentActivity {
   id: string;
   resourceName: string;
-  resourcePath?: string;
-  resourceUrl?: string;
-  programSlug?: string;
+  resourceType: string;
   accessedAt: string;
 }
 
 export interface Announcement {
-  id: string;
+  id: number;
   title: string;
   body: string;
   dateISO: string;
@@ -36,6 +34,11 @@ export interface TrainingProgress {
   startTime?: string;
   completedTime?: string;
   completionPercentage: number;
+  isCompleted: boolean;
+  lastPosition?: string;
+  score?: number;
+  attempts: number;
+  notes?: string;
   completionStatus: 'not_started' | 'in_progress' | 'completed';
 }
 
@@ -65,9 +68,7 @@ export async function getRecentActivity(profileId: string): Promise<RecentActivi
   return (data || []).map(row => ({
     id: row.id,
     resourceName: row.resource_name,
-    resourcePath: '', // Not in current schema
-    resourceUrl: '', // Not in current schema
-    programSlug: '', // Not in current schema
+    resourceType: row.resource_type,
     accessedAt: row.accessed_at,
   }));
 }
@@ -83,7 +84,7 @@ export async function getAnnouncements(): Promise<Announcement[]> {
   if (error) throw error;
   
   return (data || []).map(row => ({
-    id: row.id.toString(),
+    id: row.id,
     title: row.title,
     body: row.body,
     dateISO: row.created_at,
@@ -144,6 +145,11 @@ export async function getTrainingProgress(profileId: string): Promise<TrainingPr
     startTime: row.started_at,
     completedTime: row.completed_at,
     completionPercentage: row.completion_percentage || 0,
+    isCompleted: row.is_completed || false,
+    lastPosition: row.last_position,
+    score: row.score,
+    attempts: row.attempts || 0,
+    notes: row.notes,
     completionStatus: row.is_completed ? 'completed' : (row.started_at ? 'in_progress' : 'not_started'),
   }));
 }
@@ -165,7 +171,6 @@ export async function trackResourceAccess(
       profile_id: profileId,
       resource_name: resource.name,
       resource_type: resource.mimeType || 'file',
-      accessed_at: new Date().toISOString()
     });
     
   if (error) {
@@ -329,6 +334,8 @@ export async function getModuleProgress(
     completedTime: data.completed_at,
     completionPercentage: data.completion_percentage || 0,
     completionStatus: data.is_completed ? 'completed' : (data.started_at ? 'in_progress' : 'not_started'),
+    isCompleted: data.is_completed || false,
+    attempts: data.attempts || 0,
   };
 }
 

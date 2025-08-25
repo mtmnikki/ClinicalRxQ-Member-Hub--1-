@@ -47,10 +47,10 @@ src/
 │   ├── supabaseStorage.ts # Storage utilities
 │   └── storageCatalog.ts  # Resource catalog management
 ├── stores/              # Zustand state stores
-│   ├── authStore.ts     # Authentication state
-│   ├── profilesStore.ts # Member profiles management
-│   ├── bookmarkStore.ts # Resource bookmarks
-│   └── uiStore.ts       # UI state (sidebar, etc.)
+│   ├── authStore.ts     # Authentication state with account data
+│   ├── profileStore.ts  # Selected member profile state
+│   ├── resourceBookmarkStore.ts # Resource bookmarks per profile
+│   └── uiStore.ts       # UI state (sidebar, modals, etc.)
 ├── types/               # TypeScript type definitions
 ├── lib/                 # Utility functions
 └── config/             # Configuration files
@@ -74,21 +74,35 @@ src/
 
 ### Key Implementation Details
 
-1. **Path Aliases**: `@/` maps to `./src/` directory
+1. **Path Aliases**: `@/` maps to `./src/` directory (configured in both tsconfig.json and build.mjs)
 2. **Environment Variables**:
    - `VITE_SUPABASE_URL`: Supabase project URL
    - `VITE_SUPABASE_ANON_KEY`: Supabase anon/public key
+   - Variables are injected at build time via esbuild's `define` option (not runtime)
 3. **Build Configuration**: 
-   - esbuild configured for IIFE format
-   - Environment variables injected via `define` option
-   - CSS processed with Tailwind + Autoprefixer
+   - esbuild with watch mode for development, serves on random port
+   - IIFE format with sourcemaps in development, minified for production
+   - Custom style plugin processes CSS with Tailwind + Autoprefixer
+   - File loaders for images (.png, .svg, .jpg, .jpeg) and HTML copying
+4. **ESLint Configuration**:
+   - Uses flat config format (eslint.config.js)
+   - TypeScript, React, React Hooks, and JSX A11y plugins
+   - Custom lint script at `scripts/lint.mjs` with optional --fix flag
 
-### Current State
+### Development Workflow
 
-- **Dashboard**: Contains placeholder data arrays that need Supabase integration
-- **Authentication**: Fully functional with Supabase Auth
-- **Profile Management**: Complete CRUD operations for member profiles
-- **Storage**: Supabase storage integration for resources
+After making changes, always run:
+```bash
+node scripts/lint.mjs --fix    # Fix linting issues
+npm run build                  # Verify build succeeds
+```
+
+### Architecture Notes
+
+- **Account vs Profile**: Account is the authenticated pharmacy entity; Profile is individual team members
+- **State Management**: Each store handles a specific domain (auth, profiles, bookmarks, UI)
+- **File Processing**: Static assets are copied/processed by esbuild loaders during build
+- **TypeScript**: Strict mode enabled with path mapping for clean imports
 
 ### Important Notes
 
