@@ -12,12 +12,14 @@ import type { StorageFileItem } from './supabaseStorage';
 export interface RecentActivity {
   id: string;
   resourceName: string;
-  resourceType: string;
+  resourcePath?: string;
+  resourceUrl?: string;
+  programSlug?: string;
   accessedAt: string;
 }
 
 export interface Announcement {
-  id: number;
+  id: string;
   title: string;
   body: string;
   dateISO: string;
@@ -34,11 +36,6 @@ export interface TrainingProgress {
   startTime?: string;
   completedTime?: string;
   completionPercentage: number;
-  isCompleted: boolean;
-  lastPosition?: string;
-  score?: number;
-  attempts: number;
-  notes?: string;
   completionStatus: 'not_started' | 'in_progress' | 'completed';
 }
 
@@ -68,7 +65,9 @@ export async function getRecentActivity(profileId: string): Promise<RecentActivi
   return (data || []).map(row => ({
     id: row.id,
     resourceName: row.resource_name,
-    resourceType: row.resource_type,
+    resourcePath: '', // Not in current schema
+    resourceUrl: '', // Not in current schema
+    programSlug: '', // Not in current schema
     accessedAt: row.accessed_at,
   }));
 }
@@ -84,7 +83,7 @@ export async function getAnnouncements(): Promise<Announcement[]> {
   if (error) throw error;
   
   return (data || []).map(row => ({
-    id: row.id,
+    id: row.id.toString(),
     title: row.title,
     body: row.body,
     dateISO: row.created_at,
@@ -145,11 +144,6 @@ export async function getTrainingProgress(profileId: string): Promise<TrainingPr
     startTime: row.started_at,
     completedTime: row.completed_at,
     completionPercentage: row.completion_percentage || 0,
-    isCompleted: row.is_completed || false,
-    lastPosition: row.last_position,
-    score: row.score,
-    attempts: row.attempts || 0,
-    notes: row.notes,
     completionStatus: row.is_completed ? 'completed' : (row.started_at ? 'in_progress' : 'not_started'),
   }));
 }
@@ -171,6 +165,7 @@ export async function trackResourceAccess(
       profile_id: profileId,
       resource_name: resource.name,
       resource_type: resource.mimeType || 'file',
+      accessed_at: new Date().toISOString()
     });
     
   if (error) {
@@ -334,17 +329,7 @@ export async function getModuleProgress(
     completedTime: data.completed_at,
     completionPercentage: data.completion_percentage || 0,
     completionStatus: data.is_completed ? 'completed' : (data.started_at ? 'in_progress' : 'not_started'),
-    isCompleted: data.is_completed || false,
-    attempts: data.attempts || 0,
   };
-}
-
-// Helper to build public URLs (reuse from existing storage service)
-function buildPublicUrl(path: string): string {
-  const base = process.env.VITE_SUPABASE_URL;
-  if (!base) return '';
-  const cleanPath = path.replace(/^\/+/, '');
-  return `${base}/storage/v1/object/public/clinicalrxqfiles/${encodeURI(cleanPath)}`;
 }
 
 // Helper to map program slugs to icons

@@ -10,8 +10,8 @@ import { supabase } from '@/services/supabase';
 import type { StorageFileItem } from '@/services/supabaseStorage';
 
 interface ResourceBookmarkState {
-  // Map of resource paths to their catalog IDs that are bookmarked by current profile
-  bookmarkedResources: Map<string, string>; // path -> catalogId
+  // Set of resource paths that are bookmarked by current profile
+  bookmarkedPaths: Set<string>;
   loading: boolean;
   
   // Actions
@@ -22,71 +22,42 @@ interface ResourceBookmarkState {
 }
 
 export const useResourceBookmarkStore = create<ResourceBookmarkState>((set, get) => ({
-  bookmarkedResources: new Map(),
+  bookmarkedPaths: new Set(),
   loading: false,
 
   isBookmarked: (resourcePath: string) => {
-    return get().bookmarkedResources.has(resourcePath);
+    return get().bookmarkedPaths.has(resourcePath);
   },
 
   toggleBookmark: async (profileId: string, resource: StorageFileItem) => {
-    const { bookmarkedResources } = get();
-    const wasBookmarked = bookmarkedResources.has(resource.path);
-
-    // If no catalog ID, we need to find it from the storage_files_catalog
-    let catalogId = resource.catalogId;
-    if (!catalogId && !wasBookmarked) {
-      // Try to find the catalog ID from the database
-      const { data } = await supabase
-        .from('storage_files_catalog')
-        .select('id')
-        .eq('file_path', resource.path)
-        .eq('bucket_name', 'clinicalrxqfiles')
-        .single();
-      
-      if (data?.id) {
-        catalogId = data.id;
-      } else {
-        throw new Error('Resource not found in catalog');
-      }
-    }
+    const { bookmarkedPaths } = get();
+    const wasBookmarked = bookmarkedPaths.has(resource.path);
 
     try {
       if (wasBookmarked) {
-        // Get the catalog ID from our map
-        const existingCatalogId = bookmarkedResources.get(resource.path);
-        if (!existingCatalogId) {
-          console.error('Bookmark exists but catalog ID not found');
-          return;
-        }
-
         // Remove bookmark
         await supabase
           .from('bookmarks')
           .delete()
           .eq('profile_id', profileId)
-          .eq('resource_id', existingCatalogId);
+          .eq('resource_id', resource.path);
 
-        const newResources = new Map(bookmarkedResources);
-        newResources.delete(resource.path);
-        set({ bookmarkedResources: newResources });
+        const newPaths = new Set(bookmarkedPaths);
+        newPaths.delete(resource.path);
+        set({ bookmarkedPaths: newPaths });
       } else {
-        if (!catalogId) {
-          throw new Error('Catalog ID required to create bookmark');
-        }
-
         // Add bookmark
         await supabase
           .from('bookmarks')
           .insert({
             profile_id: profileId,
             resource_type: 'file',
-            resource_id: catalogId,
+            resource_id: resource.path,
           });
 
-        const newResources = new Map(bookmarkedResources);
-        newResources.set(resource.path, catalogId);
-        set({ bookmarkedResources: newResources });
+        const newPaths = new Set(bookmarkedPaths);
+        newPaths.add(resource.path);
+        set({ bookmarkedPaths: newPaths });
       }
     } catch (error) {
       console.error('Failed to toggle bookmark:', error);
@@ -98,32 +69,15 @@ export const useResourceBookmarkStore = create<ResourceBookmarkState>((set, get)
     try {
       set({ loading: true });
       
-      // Join bookmarks with storage_files_catalog to get both catalog ID and path
       const { data, error } = await supabase
         .from('bookmarks')
-        .select(`
-          resource_id,
-          storage_files_catalog (
-            id,
-            file_path
-          )
-        `)
-        .eq('profile_id', profileId)
-        .eq('resource_type', 'file');
+        .select('resource_id')
+        .eq('profile_id', profileId);
 
       if (error) throw error;
 
-      const resources = new Map<string, string>();
-      
-      // Build map of path -> catalogId
-      for (const bookmark of (data || [])) {
-        if (bookmark.storage_files_catalog?.file_path) {
-          const path = bookmark.storage_files_catalog.file_path.replace(/^\/+/, ''); // normalize
-          resources.set(path, bookmark.resource_id);
-        }
-      }
-      
-      set({ bookmarkedResources: resources });
+      const paths = new Set((data || []).map(row => row.resource_id));
+      set({ bookmarkedPaths: paths });
     } catch (error) {
       console.error('Failed to load bookmarks:', error);
     } finally {
@@ -132,6 +86,6 @@ export const useResourceBookmarkStore = create<ResourceBookmarkState>((set, get)
   },
 
   clearBookmarks: () => {
-    set({ bookmarkedResources: new Map() });
+    set({ bookmarkedPaths: new Set() });
   },
 }));

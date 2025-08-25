@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import MemberSidebar from '../components/layout/MemberSidebar';
-import ProfileSelectionModal from '../components/profiles/ProfileSelectionModal';
+import ProfileSelectionModal, { useProfileSelection } from '../components/auth/ProfileGate';
 import { useProfileStore } from '../stores/profileStore';
 import { 
   getDashboardPrograms, 
@@ -69,8 +69,8 @@ const StatChip: React.FC<{ label: string }> = ({ label }) => (
  */
 export default function Dashboard() {
   const { account } = useAuth();
-  const { currentProfile, setCurrentProfile, loadProfiles } = useProfileStore();
-  const [showProfileSelection, setShowProfileSelection] = useState(false);
+  const { currentProfile, loadProfiles } = useProfileStore();
+  const { showModal, setShowModal } = useProfileSelection();
   
   // Dashboard data state
   const [programs, setPrograms] = useState<any[]>([]);
@@ -79,13 +79,6 @@ export default function Dashboard() {
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Check if user needs to select a profile
-  useEffect(() => {
-    if (account?.id && !currentProfile) {
-      setShowProfileSelection(true);
-    }
-  }, [account?.id, currentProfile]);
 
   // Load dashboard data when profile is selected
   useEffect(() => {
@@ -134,22 +127,7 @@ export default function Dashboard() {
     }
   }, [account?.subscriptionStatus]);
 
-  // Show loading state while profile selection is happening or data is loading
-  if (showProfileSelection || !currentProfile) {
-    return (
-      <>
-        <ProfileSelectionModal
-          open={showProfileSelection}
-          onProfileSelected={handleProfileSelected}
-        />
-        <AppShell>
-          <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          </div>
-        </AppShell>
-      </>
-    );
-  }
+  // Remove blocking behavior - dashboard loads regardless of profile selection
 
   // Show error state
   if (error) {
@@ -355,6 +333,12 @@ export default function Dashboard() {
           </div>
         )}
       </section>
+      
+      {/* Non-blocking profile selection modal */}
+      <ProfileSelectionModal
+        open={showModal}
+        onClose={() => setShowModal(false)}
+      />
     </AppShell>
   );
 }

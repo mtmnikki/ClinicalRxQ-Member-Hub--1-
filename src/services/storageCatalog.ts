@@ -95,7 +95,6 @@ function mapRowToItem(row: StorageCatalogRow): StorageFileItem {
     title,
     mimeType: row.mime_type || undefined,
     size: typeof row.file_size === 'number' ? row.file_size : undefined,
-    catalogId: row.id,
   };
 }
 

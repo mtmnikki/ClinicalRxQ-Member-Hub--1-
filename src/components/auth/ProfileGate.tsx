@@ -1,13 +1,14 @@
 /**
- * ProfileGate
- * - Purpose: Previously used to enforce profile selection after auth.
- * - Updated: No longer blocks pages; kept as a utility that can be mounted where needed.
- * - Behavior: Loads profiles for the current account (localStorage-backed) but does not gate routes.
+ * ProfileSelectionModal
+ * - Non-blocking modal that appears on dashboard after authentication
+ * - Allows users to select which team member profile they're using
+ * - Account access is never blocked - profiles are optional
+ * - Errors in profile loading don't prevent site access
  */
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuthStore } from '../../stores/authStore';
-import { useProfilesStore } from '../../stores/profilesStore';
+import { useProfileStore } from '../../stores/profileStore';
 import type { MemberProfile } from '../../types';
 import { Button } from '../ui/button';
 import {
@@ -17,7 +18,8 @@ import {
   DialogTitle,
   DialogDescription,
 } from '../ui/dialog';
-import AddProfileModal from '../profiles/AddProfileModal';
+import AddProfileModalSupabase from '../profiles/AddProfileModalSupabase';
+import { toast } from 'sonner';
 
 /** Render a compact profile selection list. */
 function ProfileList({
@@ -38,8 +40,8 @@ function ProfileList({
             key={p.id}
             type="button"
             className={[
-              'flex w-full items-center justify-between px-3 py-2 text-left',
-              active ? 'bg-blue-50' : 'hover:bg-slate-50',
+              'flex w-full items-center justify-between px-3 py-2 text-left transition-colors',
+              active ? 'bg-blue-50 border-blue-200' : 'hover:bg-slate-50',
             ].join(' ')}
             onClick={() => onSelect(p.id)}
           >
@@ -51,7 +53,7 @@ function ProfileList({
             </div>
             <div
               className={[
-                'h-2.5 w-2.5 rounded-full',
+                'h-2.5 w-2.5 rounded-full transition-colors',
                 active ? 'bg-blue-600' : 'bg-slate-300',
               ].join(' ')}
               aria-hidden
@@ -63,91 +65,179 @@ function ProfileList({
   );
 }
 
-/**
- * ProfileGate component (non-blocking informational modal)
- * - You may choose to mount this on /account only, or trigger manually.
- */
-export default function ProfileGate() {
-  const { account, isAuthenticated } = useAuthStore();
-  const {
-    ensureLoaded,
-    profiles,
-    currentProfileId,
-    setCurrentProfile,
-    reset,
-  } = useProfilesStore();
+interface ProfileSelectionModalProps {
+  /** Whether to show the modal */
+  open: boolean;
+  /** Callback when modal should close */
+  onClose: () => void;
+  /** Force show even if profile already selected */
+  forceShow?: boolean;
+}
 
-  const [selectOpen, setSelectOpen] = useState(false);
+/**
+ * ProfileSelectionModal - Non-blocking profile selection
+ * - Only shows on dashboard after authentication
+ * - Never blocks account access
+ * - Gracefully handles errors
+ */
+export default function ProfileSelectionModal({ open, onClose, forceShow = false }: ProfileSelectionModalProps) {
+  const { account } = useAuthStore();
+  const { currentProfile, profiles, loadProfiles, setCurrentProfile } = useProfileStore();
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [pickedId, setPickedId] = useState<string | null>(null);
 
+  // Load profiles when modal opens
   useEffect(() => {
-    if (isAuthenticated && account?.id) {
-      ensureLoaded(account.id);
-    } else {
-      reset();
+    if (open && account?.id) {
+      loadProfilesSafely();
     }
-  }, [isAuthenticated, account?.id, ensureLoaded, reset]);
+  }, [open, account?.id]);
 
-  // Non-blocking: only suggest selection if none exists (but do not auto-open)
+  // Set initial selection when profiles load
   useEffect(() => {
-    if (!isAuthenticated || !account?.id) {
-      setSelectOpen(false);
-      setAddOpen(false);
-      return;
+    if (profiles.length > 0 && !pickedId) {
+      setPickedId(currentProfile?.id || profiles[0].id);
     }
-    if (!currentProfileId && profiles.length > 0) {
-      setPickedId(profiles[0].id);
-      // keep closed; can be opened by user action if you wire a button to setSelectOpen(true)
-    }
-  }, [isAuthenticated, account?.id, currentProfileId, profiles]);
+  }, [profiles, currentProfile, pickedId]);
 
-  const selectedProfile = useMemo(
-    () => profiles.find((p) => p.id === pickedId) || null,
-    [profiles, pickedId]
-  );
+  async function loadProfilesSafely() {
+    if (!account?.id) return;
+    
+    try {
+      setLoading(true);
+      setError(null);
+      await loadProfiles(account.id);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to load profiles';
+      setError(message);
+      toast.error('Profile loading failed: ' + message);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   function handleConfirm() {
-    if (pickedId) setCurrentProfile(pickedId);
-    setSelectOpen(false);
+    if (pickedId) {
+      const profile = profiles.find(p => p.id === pickedId);
+      if (profile) {
+        setCurrentProfile(profile);
+        toast.success(`Switched to ${profile.firstName} ${profile.lastName}`);
+      }
+    }
+    onClose();
   }
+
+  function handleSkip() {
+    onClose();
+  }
+
+  function handleAddProfileSuccess() {
+    setAddOpen(false);
+    // Reload profiles after adding new one
+    if (account?.id) {
+      loadProfilesSafely();
+    }
+  }
+
+  // Don't show if no account
+  if (!account?.id) return null;
 
   return (
     <>
-      {/* Optional selection dialog (not auto-opened) */}
-      <Dialog open={selectOpen} onOpenChange={(open) => setSelectOpen(open)}>
-        <DialogContent className="sm:max-w-md" hideClose>
+      <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Select a profile</DialogTitle>
+            <DialogTitle>Select Team Member Profile</DialogTitle>
             <DialogDescription>
-              Choose who is currently using the account. You can switch profiles later in Account Settings.
+              {currentProfile 
+                ? "Switch to a different team member profile, or continue with current selection."
+                : "Choose which team member is using the system. This is optional - you can always select a profile later."
+              }
             </DialogDescription>
           </DialogHeader>
 
-          <ProfileList profiles={profiles} selectedId={pickedId} onSelect={setPickedId} />
+          {loading ? (
+            <div className="py-8 text-center">
+              <div className="text-sm text-slate-600">Loading profiles...</div>
+            </div>
+          ) : error ? (
+            <div className="py-4">
+              <div className="rounded-md bg-red-50 border border-red-200 p-3">
+                <div className="text-sm text-red-800">Error loading profiles:</div>
+                <div className="text-xs text-red-600 mt-1">{error}</div>
+              </div>
+              <div className="mt-3 text-xs text-slate-500">
+                You can continue using the application without selecting a profile.
+              </div>
+            </div>
+          ) : profiles.length === 0 ? (
+            <div className="py-6 text-center">
+              <div className="text-sm text-slate-600 mb-3">
+                No team member profiles found.
+              </div>
+              <div className="text-xs text-slate-500">
+                You can create profiles later in Account Settings if needed.
+              </div>
+            </div>
+          ) : (
+            <ProfileList profiles={profiles} selectedId={pickedId} onSelect={setPickedId} />
+          )}
 
           <div className="mt-4 flex items-center justify-between gap-2">
-            <Button variant="outline" onClick={() => setAddOpen(true)}>
-              Add Profile
-            </Button>
-            <Button onClick={handleConfirm} disabled={!pickedId}>
-              Continue
-            </Button>
+            <div className="flex gap-2">
+              {profiles.length === 0 && !error && (
+                <Button variant="outline" onClick={() => setAddOpen(true)}>
+                  Add Profile
+                </Button>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={handleSkip}>
+                {currentProfile ? 'Keep Current' : 'Skip'}
+              </Button>
+              {profiles.length > 0 && (
+                <Button onClick={handleConfirm} disabled={!pickedId}>
+                  {currentProfile ? 'Switch Profile' : 'Select Profile'}
+                </Button>
+              )}
+            </div>
           </div>
         </DialogContent>
       </Dialog>
 
       {/* Add Profile modal */}
-      <AddProfileModal
+      <AddProfileModalSupabase
         open={addOpen}
         onOpenChange={setAddOpen}
-        onCreated={(createdId) => {
-          if (!currentProfileId) {
-            setPickedId(createdId);
-            setSelectOpen(true);
-          }
-        }}
+        onProfileCreated={handleAddProfileSuccess}
       />
     </>
   );
+}
+
+// Utility hook for dashboard to manage profile selection
+export function useProfileSelection() {
+  const { currentProfile, profiles } = useProfileStore();
+  const [showModal, setShowModal] = useState(false);
+  
+  // Auto-show modal on dashboard if no profile selected and profiles exist
+  const shouldShowModal = !currentProfile && profiles.length > 0;
+  
+  useEffect(() => {
+    if (shouldShowModal) {
+      // Small delay to let dashboard render first
+      const timer = setTimeout(() => setShowModal(true), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [shouldShowModal]);
+  
+  return {
+    showModal,
+    setShowModal,
+    currentProfile,
+    profileCount: profiles.length,
+  };
 }
