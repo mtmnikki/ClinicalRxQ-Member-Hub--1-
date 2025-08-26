@@ -8,6 +8,7 @@ import path from 'node:path'
 // Load .env into process.env for dev/build
 import 'dotenv/config'
 
+import process from 'node:process'
 const args = process.argv.slice(2)
 const isProd = args.includes('--production')
 
@@ -62,4 +63,4 @@ await ctx.watch()
 const { port, host } = await ctx.serve({
   servedir: 'dist',
 })
-console.log(`Dev server: http://${host || 'localhost'}:${port}`)
+console.log(`Dev server: http://${host || 'localhost'}:${port}`) // eslint-disable-line no-console

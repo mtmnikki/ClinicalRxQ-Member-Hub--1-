@@ -20,7 +20,7 @@ export type RoleType = 'Pharmacist-PIC' | 'Pharmacist' | 'Pharmacy Technician' |
 
 export interface MemberProfile {
   id: string
-  accountId: string             // db: account_id
+  memberAccountId: string             // db: member_account_id
   fullName: string              // db: full_name
   role: RoleType
   email?: string | null
@@ -50,7 +50,7 @@ export function mapRowToAccount(row: any): Account {
 export function mapRowToProfile(row: any): MemberProfile {
   return {
     id: row.id,
-    memberaccountId: row.member_account_id,
+    memberAccountId: row.member_account_id,
     firstName: row.first_name ?? null,
     lastName: row.last_name ?? null,
     role: row.role,
