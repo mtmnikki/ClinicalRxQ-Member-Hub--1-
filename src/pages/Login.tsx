@@ -75,13 +75,6 @@ export default function Login() {
               </div>
             </div>
 
-            <div className="mt-6 flex items-center gap-2 text-sm">
-              <ShieldCheck className="h-4 w-4" />
-              HIPAA-aligned. Updated monthly.
-            </div>
-          </div>
-        </div>
-
    <div className="flex items-center justify-center p-6">
         <form onSubmit={onSubmit} className="w-full max-w-sm space-y-4">
           <div>
