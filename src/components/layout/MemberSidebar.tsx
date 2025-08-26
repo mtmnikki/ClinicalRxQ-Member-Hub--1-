@@ -1,7 +1,6 @@
 /**
  * MemberSidebar
  * - Purpose: App-level left sidebar for the member area (fixed inside AppShell aside).
- * - Collapsible with a toggle, state persisted via uiStore.
  * - Uses account (not user) for display; no profile-based gating.
  */
 
@@ -28,7 +27,6 @@ import {
 import { useAuth } from '../auth/AuthContext';
 import BrandLogo from '../common/BrandLogo';
 import { useAuthStore } from '../../stores/authStore';
-import { useUiStore } from '../../stores/uiStore';
 
 /** Sidebar item descriptor */
 interface ProgramNavItem {
@@ -50,7 +48,6 @@ export default function MemberSidebar() {
   const location = useLocation();
   const { account } = useAuth();
   const { logout } = useAuthStore();
-  const { sidebarCollapsed, toggleSidebar } = useUiStore();
 
   const [openPrograms, setOpenPrograms] = useState(false);
   const [openResources, setOpenResources] = useState(false);
