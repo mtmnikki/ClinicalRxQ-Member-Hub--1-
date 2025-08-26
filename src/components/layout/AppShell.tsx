@@ -1,7 +1,6 @@
 /**
  * AppShell
  * - Purpose: Provide a fixed left sidebar layout for gated/member pages.
- * - Now supports a collapsible sidebar via useUiStore (icon rail when collapsed).
  * - Desktop-dense pass:
  *   - Sidebar remains fixed; width transitions smoothly when toggled.
  *   - Main content uses a compact, desktop-first scale.
@@ -9,7 +8,6 @@
  */
 
 import React from 'react';
-import { useUiStore, SIDEBAR_WIDTH_COLLAPSED, SIDEBAR_WIDTH_EXPANDED } from '../../stores/uiStore';
 import ProfileBookmarksPanel from '../resources/ProfileBookmarksPanel';
 
 interface AppShellProps {
@@ -25,7 +23,6 @@ interface AppShellProps {
  * AppShell component
  */
 export default function AppShell({ sidebar, header, children }: AppShellProps) {
-  const { sidebarCollapsed } = useUiStore();
   const sidebarWidth = sidebar ? (sidebarCollapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED) : 0;
 
   return (
